@@ -144,3 +144,175 @@
     @apply ring-2 ring-[#28594a]/30;
     }
 }
+
+.flower-field {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  mix-blend-mode: multiply;
+}
+
+.flower-bloom {
+  --size: 4.75rem;
+  --x: 17%;
+  --y: 64%;
+  --delay: 0s;
+  --petal-a: rgb(239 189 156 / 58%);
+  --petal-b: rgb(239 189 156 / 52%);
+  --petal-c: rgb(239 189 156 / 48%);
+  --center: rgb(87 142 46 / 45%);
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--size);
+  aspect-ratio: 1;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.28) rotate(-10deg);
+  transform-origin: center;
+  animation: flower-bloom 7.5s ease-in-out var(--delay) infinite;
+}
+
+.flower-bloom::before,
+.flower-bloom::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    radial-gradient(ellipse at 50% 17%, var(--petal-a) 0 18%, transparent 19%),
+    radial-gradient(ellipse at 83% 50%, var(--petal-b) 0 18%, transparent 19%),
+    radial-gradient(ellipse at 50% 83%, var(--petal-c) 0 18%, transparent 19%),
+    radial-gradient(ellipse at 17% 50%, var(--petal-b) 0 18%, transparent 19%),
+    radial-gradient(circle at 50% 50%, var(--center) 0 10%, transparent 11%);
+  filter: drop-shadow(0 0.55rem 1rem rgb(40 89 74 / 12%));
+}
+
+.flower-bloom::after {
+  transform: rotate(45deg) scale(0.86);
+  opacity: 0.78;
+}
+
+.flower-bloom:nth-child(2) {
+  --size: 3.25rem;
+  --x: 29%;
+  --y: 48%;
+  --delay: 1.1s;
+  --petal-a: rgb(212 180 229 / 54%);
+  --petal-b: rgb(185 153 212 / 48%);
+  --petal-c: rgb(231 211 241 / 42%);
+  --center: rgb(122 75 53 / 36%);
+}
+
+.flower-bloom:nth-child(3) {
+  --size: 5.85rem;
+  --x: 10%;
+  --y: 30%;
+  --delay: 2.2s;
+  --petal-a: rgb(246 218 128 / 46%);
+  --petal-b: rgb(247 199 102 / 42%);
+  --petal-c: rgb(255 238 171 / 40%);
+  --center: rgb(40 89 74 / 42%);
+}
+
+.flower-bloom:nth-child(4) {
+  --size: 2.75rem;
+  --x: 38%;
+  --y: 75%;
+  --delay: 3.2s;
+  --petal-a: rgb(147 190 148 / 48%);
+  --petal-b: rgb(103 159 119 / 42%);
+  --petal-c: rgb(188 218 181 / 38%);
+  --center: rgb(155 96 64 / 38%);
+}
+
+.flower-bloom:nth-child(5) {
+  --size: 4.1rem;
+  --x: 47%;
+  --y: 34%;
+  --delay: 4.1s;
+  --petal-a: rgb(226 146 122 / 50%);
+  --petal-b: rgb(198 111 91 / 44%);
+  --petal-c: rgb(242 190 169 / 40%);
+  --center: rgb(87 142 46 / 42%);
+}
+
+.flower-bloom:nth-child(6) {
+  --size: 3.7rem;
+  --x: 22%;
+  --y: 82%;
+  --delay: 5s;
+  --petal-a: rgb(173 215 213 / 46%);
+  --petal-b: rgb(119 181 177 / 42%);
+  --petal-c: rgb(202 232 226 / 36%);
+  --center: rgb(122 75 53 / 34%);
+}
+
+.flower-bloom:nth-child(7) {
+  --size: 2.55rem;
+  --x: 56%;
+  --y: 60%;
+  --delay: 0.65s;
+  --petal-a: rgb(244 174 197 / 50%);
+  --petal-b: rgb(229 132 168 / 44%);
+  --petal-c: rgb(255 213 225 / 38%);
+  --center: rgb(40 89 74 / 38%);
+}
+
+.flower-bloom:nth-child(8) {
+  --size: 3.15rem;
+  --x: 7%;
+  --y: 72%;
+  --delay: 1.85s;
+  --petal-a: rgb(235 212 174 / 50%);
+  --petal-b: rgb(213 181 128 / 44%);
+  --petal-c: rgb(250 232 199 / 38%);
+  --center: rgb(87 142 46 / 36%);
+}
+
+.flower-bloom:nth-child(9) {
+  --size: 4.65rem;
+  --x: 42%;
+  --y: 19%;
+  --delay: 2.85s;
+  --petal-a: rgb(197 218 162 / 46%);
+  --petal-b: rgb(151 187 118 / 42%);
+  --petal-c: rgb(225 237 200 / 36%);
+  --center: rgb(155 96 64 / 36%);
+}
+
+.flower-bloom:nth-child(10) {
+  --size: 2.95rem;
+  --x: 63%;
+  --y: 78%;
+  --delay: 4.75s;
+  --petal-a: rgb(218 184 235 / 48%);
+  --petal-b: rgb(176 139 207 / 42%);
+  --petal-c: rgb(239 221 247 / 36%);
+  --center: rgb(40 89 74 / 34%);
+}
+
+@keyframes flower-bloom {
+  0%,
+  12% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2) rotate(-18deg);
+  }
+  28%,
+  58% {
+    opacity: 0.82;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+  78%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.18) rotate(12deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flower-bloom {
+    animation: none;
+    opacity: 0.38;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

@@ -143,6 +143,18 @@ export function App() {
               className="absolute inset-0 size-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#10251d]/42 via-transparent to-transparent" />
+            <div className="flower-field" aria-hidden="true">
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+            </div>
             <div className="absolute bottom-5 left-5 right-5 rounded-md bg-white/86 p-5 shadow-xl backdrop-blur-md sm:left-auto sm:max-w-sm">
               <p className="text-sm font-medium text-[#7a4b35]">Direkt erreichbar</p>
               <p className="mt-2 text-2xl font-semibold text-[#18221e]">0660 77 27 575</p>
@@ -266,6 +278,18 @@ export function App() {
               className="absolute inset-0 size-full object-cover object-center"
             />
             <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-[#f8f5ef]/44 to-transparent" />
+            <div className="flower-field" aria-hidden="true">
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+              <span className="flower-bloom" />
+            </div>
           </div>
           <div className="max-w-xl">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#9b6040]">
