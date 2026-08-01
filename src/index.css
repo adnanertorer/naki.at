@@ -49,13 +49,13 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    --background: #f8f5ef;
+    --foreground: #1c2621;
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
+    --primary: #28594a;
     --primary-foreground: oklch(0.985 0 0);
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
@@ -122,9 +122,25 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     }
   html {
-    @apply font-sans;
+    @apply scroll-smooth font-sans;
+    }
+  a {
+    @apply transition-colors;
+    }
+  a:hover {
+    @apply text-[#28594a];
+    }
+  input,
+  select,
+  textarea {
+    @apply text-base outline-none transition;
+    }
+  input:focus,
+  select:focus,
+  textarea:focus {
+    @apply ring-2 ring-[#28594a]/30;
     }
 }
