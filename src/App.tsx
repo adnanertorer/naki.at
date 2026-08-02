@@ -1,67 +1,149 @@
+import { useEffect, useMemo, useState } from "react"
+import type { ChangeEvent, Dispatch, ReactNode, SetStateAction } from "react"
 import {
   ArrowRight,
   Check,
+  Database,
+  Download,
+  Eye,
   Gift,
   HeartPulse,
+  Home,
   Leaf,
   MapPin,
   Menu,
   Phone,
+  Plus,
+  RotateCcw,
+  Save,
   Sparkles,
   Timer,
+  Trash2,
+  Upload,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import nakiLogo from "@/assets/images/logo_naki.svg"
 import nakiPortrait from "@/assets/images/naki.jpg"
+import {
+  defaultSiteContent,
+  siteContentVersion,
+  type ServiceIcon,
+  type SiteContent,
+} from "@/data/siteContent"
 
-const services = [
-  {
-    title: "Ganzkörper-Massage",
-    price: "ab 70€",
-    text: "Klassische Massage für tiefe Entspannung, bessere Beweglichkeit und gezielte Linderung von Verspannungen.",
-    times: ["50 Min · 70€", "80 Min · 100€", "10+1 · ab 700€"],
-    icon: HeartPulse,
-  },
-  {
-    title: "Teilkörper-Massage",
-    price: "ab 50€",
-    text: "Fokussierte Behandlung für Rücken, Beine oder Arme, wenn einzelne Bereiche besondere Aufmerksamkeit brauchen.",
-    times: ["25 Min · 50€", "50 Min · 70€", "10+1 · ab 500€"],
-    icon: Timer,
-  },
-  {
-    title: "Aromaöl-Massage",
-    price: "ab 70€",
-    text: "Sanfte Ganzkörpermassage mit warmen Aromaölen für Regeneration, Ruhe und ein weiches Körpergefühl.",
-    times: ["60 Min · 70€", "10+1 · 700€"],
-    icon: Leaf,
-  },
-  {
-    title: "Fuss-Massage",
-    price: "ab 50€",
-    text: "Entspannende Fußmassage mit wohltuender Stimulation der Reflexzonen und spürbarer Leichtigkeit.",
-    times: ["25 Min · 50€", "50 Min · 70€", "10+1 · ab 500€"],
-    icon: Sparkles,
-  },
-]
+const contentStorageKey = "naki-site-content"
 
-const benefits = [
-  "Ruhige Praxis in Pramet",
-  "Persönliche Terminabstimmung",
-  "Wert- und Massagegutscheine",
-  "10+1 Pakete für regelmäßige Behandlungen",
-]
+const serviceIcons = {
+  heart: HeartPulse,
+  timer: Timer,
+  leaf: Leaf,
+  sparkles: Sparkles,
+}
 
-const voucherValues = ["25€", "50€", "75€", "100€", "200€", "300€"]
+const iconLabels: Record<ServiceIcon, string> = {
+  heart: "Herz",
+  timer: "Zeit",
+  leaf: "Blatt",
+  sparkles: "Glanz",
+}
+
+function listToText(items: string[]) {
+  return items.join("\n")
+}
+
+function textToList(value: string) {
+  return value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function phoneHref(phone: string) {
+  return `tel:${phone.replace(/[^\d+]/g, "")}`
+}
+
+function useSiteContent() {
+  const [content, setContent] = useState<SiteContent>(() => {
+    const stored = window.localStorage.getItem(contentStorageKey)
+
+    if (!stored) {
+      return defaultSiteContent
+    }
+
+    try {
+      const parsed = JSON.parse(stored) as { content?: SiteContent }
+      return parsed.content ?? defaultSiteContent
+    } catch {
+      return defaultSiteContent
+    }
+  })
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      contentStorageKey,
+      JSON.stringify({ version: siteContentVersion, content }, null, 2)
+    )
+  }, [content])
+
+  return [content, setContent] as const
+}
+
+function useAdminRoute() {
+  const [isAdmin, setIsAdmin] = useState(() => {
+    return window.location.hash === "#/admin" || window.location.pathname.endsWith("/admin")
+  })
+
+  useEffect(() => {
+    const handleRoute = () => {
+      setIsAdmin(window.location.hash === "#/admin" || window.location.pathname.endsWith("/admin"))
+    }
+
+    window.addEventListener("hashchange", handleRoute)
+    window.addEventListener("popstate", handleRoute)
+
+    return () => {
+      window.removeEventListener("hashchange", handleRoute)
+      window.removeEventListener("popstate", handleRoute)
+    }
+  }, [])
+
+  return isAdmin
+}
+
+function FlowerLayer() {
+  return (
+    <div className="flower-field" aria-hidden="true">
+      {Array.from({ length: 10 }).map((_, index) => (
+        <span className="flower-bloom" key={index} />
+      ))}
+    </div>
+  )
+}
 
 export function App() {
+  const [content, setContent] = useSiteContent()
+  const isAdmin = useAdminRoute()
+
+  if (isAdmin) {
+    return <AdminPanel content={content} setContent={setContent} />
+  }
+
+  return <PublicSite content={content} />
+}
+
+function PublicSite({ content }: { content: SiteContent }) {
+  const serviceTitles = useMemo(
+    () => content.services.map((service) => service.title),
+    [content.services]
+  )
+
   return (
     <main className="min-h-svh bg-[#f8f5ef] text-[#1c2621]">
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/35 bg-[#f8f5ef]/88 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
           <a href="#top" className="flex items-center font-semibold">
-            <span className="flex h-14 w-44 items-center sm:w-56 lg:w-64 mt-3">
+            <span className="mt-3 flex h-14 w-44 items-center sm:w-56 lg:w-64">
               <img
                 src={nakiLogo}
                 alt="Naki Öztürk Massagezentrum Pramet"
@@ -71,19 +153,19 @@ export function App() {
             <span className="sr-only">Naki Öztürk Massagezentrum Pramet</span>
           </a>
           <nav className="hidden items-center gap-8 text-sm font-medium text-[#52625a] md:flex">
-            <a href="#leistungen">Leistungen</a>
-            <a href="#naki">Über Naki</a>
-            <a href="#praxis">Praxis</a>
-            <a href="#termin">Termin</a>
-            <a href="#kontakt">Kontakt</a>
+            <a href="#leistungen">{content.nav.services}</a>
+            <a href="#naki">{content.nav.about}</a>
+            <a href="#praxis">{content.nav.practice}</a>
+            <a href="#termin">{content.nav.appointment}</a>
+            <a href="#kontakt">{content.nav.contact}</a>
           </nav>
           <div className="flex items-center gap-2">
             <a
-              href="tel:+436607727575"
+              href={phoneHref(content.contact.phone)}
               className="hidden h-9 items-center justify-center gap-2 rounded-md bg-[#28594a] px-3 text-sm font-medium text-white transition hover:bg-[#214a3e] hover:text-white md:inline-flex"
             >
               <Phone className="size-4" />
-              Anrufen
+              {content.nav.call}
             </a>
             <button
               aria-label="Navigation öffnen"
@@ -99,33 +181,31 @@ export function App() {
         <div className="mx-auto grid min-h-[calc(100svh-4rem)] max-w-7xl items-center gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:py-16">
           <div className="relative z-10 max-w-2xl">
             <p className="mb-5 inline-flex rounded-md border border-[#d7c9b9] bg-white/62 px-3 py-1 text-sm font-medium text-[#7a4b35]">
-              Massage in Grosspiesenham, 4925 Pramet
+              {content.hero.eyebrow}
             </p>
             <h1 className="max-w-3xl text-5xl font-semibold leading-[1.02] tracking-normal text-[#18221e] sm:text-6xl lg:text-7xl">
-              Deine Wohlfühl-Massage in Pramet
+              {content.hero.title}
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-8 text-[#52625a]">
-              Entspannen, regenerieren und wieder leichter bewegen: Naki Öztürk
-              begleitet dich mit klassischer Massage, Aromaöl-Massage und
-              fokussierten Behandlungen für deinen Alltag.
+              {content.hero.body}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a
                 href="#termin"
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#28594a] px-5 text-sm font-medium text-white transition hover:bg-[#214a3e] hover:text-white"
               >
-                Termin vereinbaren
+                {content.hero.primaryCta}
                 <ArrowRight className="size-4" />
               </a>
               <a
                 href="#leistungen"
                 className="inline-flex h-11 items-center justify-center rounded-md border border-[#cfc4b6] bg-white/70 px-5 text-sm font-medium text-[#28594a] transition hover:bg-white hover:text-[#214a3e]"
               >
-                Leistungen ansehen
+                {content.hero.secondaryCta}
               </a>
             </div>
             <div className="mt-9 grid max-w-xl gap-3 sm:grid-cols-2">
-              {benefits.map((benefit) => (
+              {content.benefits.map((benefit) => (
                 <div key={benefit} className="flex items-center gap-3 text-sm text-[#43534b]">
                   <span className="grid size-6 shrink-0 place-items-center rounded-md bg-[#dfe8df] text-[#28594a]">
                     <Check className="size-4" />
@@ -139,28 +219,18 @@ export function App() {
           <div className="relative min-h-[420px] overflow-hidden rounded-lg border border-white/55 shadow-[0_28px_80px_rgba(31,48,39,0.18)] lg:min-h-[680px]">
             <img
               src={nakiPortrait}
-              alt="Ruhiger Massageraum mit Behandlungsliege und Tageslicht"
+              alt="Naki Öztürk"
               className="absolute inset-0 size-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#10251d]/42 via-transparent to-transparent" />
-            <div className="flower-field" aria-hidden="true">
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-            </div>
+            <FlowerLayer />
             <div className="absolute bottom-5 left-5 right-5 rounded-md bg-white/86 p-5 shadow-xl backdrop-blur-md sm:left-auto sm:max-w-sm">
-              <p className="text-sm font-medium text-[#7a4b35]">Direkt erreichbar</p>
-              <p className="mt-2 text-2xl font-semibold text-[#18221e]">0660 77 27 575</p>
+              <p className="text-sm font-medium text-[#7a4b35]">{content.hero.contactLabel}</p>
+              <p className="mt-2 text-2xl font-semibold text-[#18221e]">
+                {content.contact.phone}
+              </p>
               <p className="mt-2 text-sm leading-6 text-[#52625a]">
-                Für Termine, Gutscheine und kurze Rückfragen. Bei Formularanfragen
-                erfolgt ein Rückruf.
+                {content.hero.contactBody}
               </p>
             </div>
           </div>
@@ -172,7 +242,7 @@ export function App() {
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#9b6040]">
-                Leistungen
+                {content.nav.services}
               </p>
               <h2 className="mt-3 max-w-2xl text-4xl font-semibold leading-tight text-[#18221e] sm:text-5xl">
                 Massagen mit klaren Preisen und ruhigem Ablauf
@@ -185,8 +255,8 @@ export function App() {
           </div>
 
           <div className="mt-12 grid gap-5 md:grid-cols-2">
-            {services.map((service) => {
-              const Icon = service.icon
+            {content.services.map((service) => {
+              const Icon = serviceIcons[service.icon]
 
               return (
                 <article
@@ -242,29 +312,19 @@ export function App() {
         <div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-[0.86fr_1.14fr]">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#9b6040]">
-              Die Praxis
+              {content.practice.eyebrow}
             </p>
             <h2 className="mt-3 text-4xl font-semibold leading-tight text-[#18221e] sm:text-5xl">
-              Berührung, die den Körper wieder in Ruhe bringt
+              {content.practice.title}
             </h2>
           </div>
           <div className="grid gap-5 text-base leading-8 text-[#52625a] md:grid-cols-2">
-            <div className="rounded-lg bg-white p-6">
-              <h3 className="text-xl font-semibold text-[#18221e]">Wirkung</h3>
-              <p className="mt-3">
-                Massage kann Durchblutung und Zellstoffwechsel anregen, Muskulatur
-                lockern und vorhandenen Stress reduzieren. Viele Gäste nutzen sie
-                zur Regeneration, bei Verspannungen oder als bewusste Pause.
-              </p>
-            </div>
-            <div className="rounded-lg bg-white p-6">
-              <h3 className="text-xl font-semibold text-[#18221e]">Hinweis</h3>
-              <p className="mt-3">
-                Bei akuten Entzündungen, Hauterkrankungen, traumatischen
-                Verletzungen oder während der Schwangerschaft bitte vorab ärztlich
-                abklären, welche Behandlung geeignet ist.
-              </p>
-            </div>
+            {content.practice.cards.map((card) => (
+              <div className="rounded-lg bg-white p-6" key={card.title}>
+                <h3 className="text-xl font-semibold text-[#18221e]">{card.title}</h3>
+                <p className="mt-3">{card.text}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -278,46 +338,23 @@ export function App() {
               className="absolute inset-0 size-full object-cover object-center"
             />
             <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-[#f8f5ef]/44 to-transparent" />
-            <div className="flower-field" aria-hidden="true">
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-              <span className="flower-bloom" />
-            </div>
+            <FlowerLayer />
           </div>
           <div className="max-w-xl">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#9b6040]">
-              Über Naki
+              {content.about.eyebrow}
             </p>
             <h2 className="mt-3 text-4xl font-semibold leading-tight text-[#18221e] sm:text-5xl">
-              Persönlich, ruhig und mit Aufmerksamkeit für den Körper
+              {content.about.title}
             </h2>
-            <p className="mt-5 text-base leading-8 text-[#52625a]">
-              Bei Naki Öztürk steht nicht die schnelle Behandlung im Mittelpunkt,
-              sondern ein achtsamer Ablauf, der zu dir und deinem Körper passt.
-              Jede Massage wird mit Ruhe, Erfahrung und einem klaren Blick auf
-              deine aktuellen Bedürfnisse abgestimmt.
-            </p>
+            <p className="mt-5 text-base leading-8 text-[#52625a]">{content.about.body}</p>
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg bg-white p-5">
-                <p className="text-3xl font-semibold text-[#28594a]">4</p>
-                <p className="mt-2 text-sm leading-6 text-[#5b6b63]">
-                  Massagearten für Entspannung, Regeneration und gezielte
-                  Lockerung.
-                </p>
-              </div>
-              <div className="rounded-lg bg-white p-5">
-                <p className="text-3xl font-semibold text-[#28594a]">10+1</p>
-                <p className="mt-2 text-sm leading-6 text-[#5b6b63]">
-                  Paketoptionen für alle, die regelmäßige Behandlung schätzen.
-                </p>
-              </div>
+              {content.about.stats.map((stat) => (
+                <div className="rounded-lg bg-white p-5" key={stat.value}>
+                  <p className="text-3xl font-semibold text-[#28594a]">{stat.value}</p>
+                  <p className="mt-2 text-sm leading-6 text-[#5b6b63]">{stat.text}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -327,21 +364,20 @@ export function App() {
         <div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-[0.82fr_1.18fr]">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#d6a276]">
-              Termin vereinbaren
+              {content.appointment.eyebrow}
             </p>
             <h2 className="mt-3 text-4xl font-semibold leading-tight sm:text-5xl">
-              Schreib kurz, was du brauchst. Naki ruft zurück.
+              {content.appointment.title}
             </h2>
             <p className="mt-5 max-w-md leading-8 text-white/72">
-              Die Anfrage ist unverbindlich. Für schnelle Abstimmung erreichst du
-              die Praxis auch direkt telefonisch.
+              {content.appointment.body}
             </p>
             <a
-              href="tel:+436607727575"
+              href={phoneHref(content.contact.phone)}
               className="mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-medium text-[#1e2b25] transition hover:bg-[#f4efe6] hover:text-[#1e2b25]"
             >
               <Phone className="size-4" />
-              0660 77 27 575
+              {content.contact.phone}
             </a>
           </div>
           <form className="grid gap-4 rounded-lg bg-white p-5 text-[#1c2621] shadow-2xl sm:p-7">
@@ -350,8 +386,8 @@ export function App() {
                 Massageart
                 <select className="h-12 rounded-md border border-[#d9d1c5] bg-[#fbfaf7] px-3">
                   <option>Bitte auswählen</option>
-                  {services.map((service) => (
-                    <option key={service.title}>{service.title}</option>
+                  {serviceTitles.map((title) => (
+                    <option key={title}>{title}</option>
                   ))}
                 </select>
               </label>
@@ -381,7 +417,7 @@ export function App() {
               <textarea className="min-h-28 rounded-md border border-[#d9d1c5] bg-[#fbfaf7] p-3" />
             </label>
             <Button type="button" className="h-12 rounded-md bg-[#28594a]">
-              Absenden
+              {content.appointment.submitLabel}
               <ArrowRight className="size-4" />
             </Button>
           </form>
@@ -393,14 +429,11 @@ export function App() {
           <div className="rounded-lg border border-[#e7dfd4] bg-[#fbfaf7] p-7">
             <Gift className="size-10 text-[#9b6040]" />
             <h2 className="mt-5 text-4xl font-semibold text-[#18221e]">
-              Gutschein kaufen
+              {content.vouchers.title}
             </h2>
-            <p className="mt-4 leading-8 text-[#5b6b63]">
-              Wertgutscheine und Massagegutscheine können täglich von 18:00 bis
-              19:00 Uhr in Grosspiesenham 49, 4925 Pramet abgeholt werden.
-            </p>
+            <p className="mt-4 leading-8 text-[#5b6b63]">{content.vouchers.body}</p>
             <div className="mt-6 flex flex-wrap gap-2">
-              {voucherValues.map((value) => (
+              {content.vouchers.values.map((value) => (
                 <span key={value} className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-[#28594a]">
                   {value}
                 </span>
@@ -410,25 +443,25 @@ export function App() {
           <div id="kontakt" className="rounded-lg bg-[#eef3ec] p-7">
             <MapPin className="size-10 text-[#28594a]" />
             <h2 className="mt-5 text-4xl font-semibold text-[#18221e]">
-              Kontakt & Anfahrt
+              {content.contact.title}
             </h2>
             <div className="mt-5 space-y-3 text-lg text-[#43534b]">
-              <p className="font-semibold text-[#18221e]">Naki Öztürk</p>
-              <p>Grosspiesenham 49, 4925 Pramet</p>
+              <p className="font-semibold text-[#18221e]">{content.contact.name}</p>
+              <p>{content.contact.address}</p>
               <p>
-                <a href="tel:+436607727575">0660 77 27 575</a>
+                <a href={phoneHref(content.contact.phone)}>{content.contact.phone}</a>
               </p>
               <p>
-                <a href="mailto:office@naki.at">office@naki.at</a>
+                <a href={`mailto:${content.contact.email}`}>{content.contact.email}</a>
               </p>
             </div>
             <a
-              href="https://www.google.at/maps/search/Grosspiesenham+49+4925+Pramet"
+              href={content.contact.mapUrl}
               target="_blank"
               rel="noreferrer"
               className="mt-7 inline-flex h-8 items-center justify-center gap-2 rounded-md bg-[#28594a] px-3 text-sm font-medium text-white transition hover:bg-[#214a3e] hover:text-white"
             >
-              Anfahrt öffnen
+              {content.contact.mapLabel}
               <ArrowRight className="size-4" />
             </a>
           </div>
@@ -437,11 +470,338 @@ export function App() {
 
       <footer className="border-t border-[#e7dfd4] bg-[#f8f5ef] px-5 py-8 text-sm text-[#66746d] sm:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 Naki Öztürk · Massage Pramet</p>
-          <p>Mitglied der WKO · Impressum: Grosspiesenham 49, 4925 Pramet</p>
+          <p>{content.footer.copyright}</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <p>{content.footer.imprint}</p>
+            <a href="#/admin" className="font-medium text-[#28594a]">
+              Admin
+            </a>
+          </div>
         </div>
       </footer>
     </main>
+  )
+}
+
+function AdminPanel({
+  content: savedContent,
+  setContent,
+}: {
+  content: SiteContent
+  setContent: Dispatch<SetStateAction<SiteContent>>
+}) {
+  const [draft, setDraft] = useState(savedContent)
+  const [status, setStatus] = useState("Değişiklikler taslakta bekler; Kaydedildi butonuna basınca uygulanır.")
+
+  useEffect(() => {
+    setDraft(savedContent)
+  }, [savedContent])
+
+  const saveDraft = () => {
+    setContent(draft)
+    setStatus("Taslak uygulandı ve taşınabilir veritabanına kaydedildi.")
+  }
+
+  const downloadDatabase = () => {
+    const payload = JSON.stringify({ version: siteContentVersion, content: draft }, null, 2)
+    const blob = new Blob([payload], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "naki-site-draft.json"
+    link.click()
+    URL.revokeObjectURL(url)
+    setStatus("Veritabanı JSON olarak indirildi.")
+  }
+
+  const importDatabase = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result)) as { content?: SiteContent }
+        if (!parsed.content) {
+          throw new Error("Missing content")
+        }
+        setDraft(parsed.content)
+        setStatus("Veritabanı taslağa yüklendi. Uygulamak için Kaydedildi butonuna bas.")
+      } catch {
+        setStatus("JSON okunamadı. Lütfen admin panelinden indirilen dosyayı kullan.")
+      }
+    }
+    reader.readAsText(file)
+    event.target.value = ""
+  }
+
+  const resetContent = () => {
+    if (window.confirm("Tüm yerel değişiklikleri sıfırlamak istiyor musun?")) {
+      setDraft(defaultSiteContent)
+      setStatus("Varsayılan içerik taslağa alındı. Uygulamak için Kaydedildi butonuna bas.")
+    }
+  }
+
+  return (
+    <main className="min-h-svh bg-[#f4efe6] text-[#1c2621]">
+      <header className="sticky top-0 z-40 border-b border-[#ded4c4] bg-[#f8f5ef]/92 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-4 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-[#9b6040]">
+              <Database className="size-4" />
+              Taşınabilir İçerik Veritabanı
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-[#18221e]">
+              Naki Admin Panel
+            </h1>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="#top"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-white px-4 text-sm font-medium text-[#28594a] shadow-sm"
+            >
+              <Home className="size-4" />
+              Siteye dön
+            </a>
+            <button
+              type="button"
+              onClick={saveDraft}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#28594a] px-4 text-sm font-medium text-white"
+            >
+              <Save className="size-4" />
+              Kaydedildi
+            </button>
+            <button
+              type="button"
+              onClick={downloadDatabase}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#d1c5b7] bg-white px-4 text-sm font-medium"
+            >
+              <Download className="size-4" />
+              JSON indir
+            </button>
+            <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-[#d1c5b7] bg-white px-4 text-sm font-medium">
+              <Upload className="size-4" />
+              JSON yükle
+              <input type="file" accept="application/json" onChange={importDatabase} className="sr-only" />
+            </label>
+            <button
+              type="button"
+              onClick={resetContent}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#d1c5b7] bg-white px-4 text-sm font-medium"
+            >
+              <RotateCcw className="size-4" />
+              Sıfırla
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto grid max-w-7xl gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[16rem_1fr]">
+        <aside className="h-max rounded-lg border border-[#ded4c4] bg-white p-4">
+          <nav className="grid gap-1 text-sm font-medium text-[#52625a]">
+            {[
+              ["#admin-hero", "Hero"],
+              ["#admin-services", "Hizmetler"],
+              ["#admin-practice", "Praxis"],
+              ["#admin-about", "Über Naki"],
+              ["#admin-appointment", "Termin"],
+              ["#admin-contact", "Kontakt"],
+            ].map(([href, label]) => (
+              <a className="rounded-md px-3 py-2 hover:bg-[#eef3ec]" href={href} key={href}>
+                {label}
+              </a>
+            ))}
+          </nav>
+          <p className="mt-4 rounded-md bg-[#eef3ec] p-3 text-xs leading-5 text-[#52625a]">
+            {status}
+          </p>
+        </aside>
+
+        <div className="grid gap-6">
+          <AdminSection id="admin-hero" title="Hero ve Menü">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Hero üst etiket" value={draft.hero.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, eyebrow: value } }))} />
+              <Field label="Başlık" value={draft.hero.title} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, title: value } }))} />
+              <TextArea label="Açıklama" value={draft.hero.body} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, body: value } }))} />
+              <TextArea label="Faydalar (her satır bir madde)" value={listToText(draft.benefits)} onChange={(value) => setDraft((current) => ({ ...current, benefits: textToList(value) }))} />
+              <Field label="Ana buton" value={draft.hero.primaryCta} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, primaryCta: value } }))} />
+              <Field label="İkinci buton" value={draft.hero.secondaryCta} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, secondaryCta: value } }))} />
+              <Field label="İletişim kart etiketi" value={draft.hero.contactLabel} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, contactLabel: value } }))} />
+              <TextArea label="İletişim kart metni" value={draft.hero.contactBody} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, contactBody: value } }))} />
+            </div>
+          </AdminSection>
+
+          <AdminSection id="admin-services" title="Hizmetler ve Fiyatlar">
+            <div className="grid gap-4">
+              {draft.services.map((service, index) => (
+                <div className="rounded-lg border border-[#ded4c4] bg-[#fbfaf7] p-4" key={`service-${index}`}>
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h3 className="font-semibold text-[#18221e]">{service.title || `Hizmet ${index + 1}`}</h3>
+                    <button
+                      type="button"
+                      onClick={() => setDraft((current) => ({ ...current, services: current.services.filter((_, serviceIndex) => serviceIndex !== index) }))}
+                      className="grid size-9 place-items-center rounded-md border border-[#d1c5b7] bg-white text-[#9b6040]"
+                      aria-label="Hizmeti sil"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Başlık" value={service.title} onChange={(value) => setDraft((current) => ({ ...current, services: current.services.map((item, serviceIndex) => serviceIndex === index ? { ...item, title: value } : item) }))} />
+                    <Field label="Fiyat etiketi" value={service.price} onChange={(value) => setDraft((current) => ({ ...current, services: current.services.map((item, serviceIndex) => serviceIndex === index ? { ...item, price: value } : item) }))} />
+                    <label className="grid gap-2 text-sm font-medium text-[#43534b]">
+                      İkon
+                      <select
+                        value={service.icon}
+                        onChange={(event) => setDraft((current) => ({ ...current, services: current.services.map((item, serviceIndex) => serviceIndex === index ? { ...item, icon: event.target.value as ServiceIcon } : item) }))}
+                        className="h-11 rounded-md border border-[#d1c5b7] bg-white px-3"
+                      >
+                        {Object.entries(iconLabels).map(([value, label]) => (
+                          <option value={value} key={value}>{label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <TextArea label="Süreler / paketler (her satır bir etiket)" value={listToText(service.times)} onChange={(value) => setDraft((current) => ({ ...current, services: current.services.map((item, serviceIndex) => serviceIndex === index ? { ...item, times: textToList(value) } : item) }))} />
+                    <TextArea label="Açıklama" value={service.text} onChange={(value) => setDraft((current) => ({ ...current, services: current.services.map((item, serviceIndex) => serviceIndex === index ? { ...item, text: value } : item) }))} />
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setDraft((current) => ({ ...current, services: [...current.services, { title: "Neue Massage", price: "ab 0€", text: "Beschreibung ergänzen.", times: ["50 Min · 0€"], icon: "sparkles" }] }))}
+                className="inline-flex h-11 w-max items-center justify-center gap-2 rounded-md bg-[#28594a] px-4 text-sm font-medium text-white"
+              >
+                <Plus className="size-4" />
+                Hizmet ekle
+              </button>
+            </div>
+          </AdminSection>
+
+          <AdminSection id="admin-practice" title="Praxis İçeriği">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Etiket" value={draft.practice.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, practice: { ...current.practice, eyebrow: value } }))} />
+              <Field label="Başlık" value={draft.practice.title} onChange={(value) => setDraft((current) => ({ ...current, practice: { ...current.practice, title: value } }))} />
+              {draft.practice.cards.map((card, index) => (
+                <div className="grid gap-4 rounded-lg border border-[#ded4c4] bg-[#fbfaf7] p-4" key={`practice-card-${index}`}>
+                  <Field label="Kart başlığı" value={card.title} onChange={(value) => setDraft((current) => ({ ...current, practice: { ...current.practice, cards: current.practice.cards.map((item, cardIndex) => cardIndex === index ? { ...item, title: value } : item) } }))} />
+                  <TextArea label="Kart metni" value={card.text} onChange={(value) => setDraft((current) => ({ ...current, practice: { ...current.practice, cards: current.practice.cards.map((item, cardIndex) => cardIndex === index ? { ...item, text: value } : item) } }))} />
+                </div>
+              ))}
+            </div>
+          </AdminSection>
+
+          <AdminSection id="admin-about" title="Über Naki">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Etiket" value={draft.about.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, about: { ...current.about, eyebrow: value } }))} />
+              <Field label="Başlık" value={draft.about.title} onChange={(value) => setDraft((current) => ({ ...current, about: { ...current.about, title: value } }))} />
+              <TextArea label="Metin" value={draft.about.body} onChange={(value) => setDraft((current) => ({ ...current, about: { ...current.about, body: value } }))} />
+              {draft.about.stats.map((stat, index) => (
+                <div className="grid gap-4 rounded-lg border border-[#ded4c4] bg-[#fbfaf7] p-4" key={`about-stat-${index}`}>
+                  <Field label="Vurgu değeri" value={stat.value} onChange={(value) => setDraft((current) => ({ ...current, about: { ...current.about, stats: current.about.stats.map((item, statIndex) => statIndex === index ? { ...item, value } : item) } }))} />
+                  <TextArea label="Vurgu metni" value={stat.text} onChange={(value) => setDraft((current) => ({ ...current, about: { ...current.about, stats: current.about.stats.map((item, statIndex) => statIndex === index ? { ...item, text: value } : item) } }))} />
+                </div>
+              ))}
+            </div>
+          </AdminSection>
+
+          <AdminSection id="admin-appointment" title="Termin ve Gutschein">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Termin etiketi" value={draft.appointment.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, appointment: { ...current.appointment, eyebrow: value } }))} />
+              <Field label="Termin başlığı" value={draft.appointment.title} onChange={(value) => setDraft((current) => ({ ...current, appointment: { ...current.appointment, title: value } }))} />
+              <TextArea label="Termin metni" value={draft.appointment.body} onChange={(value) => setDraft((current) => ({ ...current, appointment: { ...current.appointment, body: value } }))} />
+              <Field label="Form butonu" value={draft.appointment.submitLabel} onChange={(value) => setDraft((current) => ({ ...current, appointment: { ...current.appointment, submitLabel: value } }))} />
+              <Field label="Gutschein başlığı" value={draft.vouchers.title} onChange={(value) => setDraft((current) => ({ ...current, vouchers: { ...current.vouchers, title: value } }))} />
+              <TextArea label="Gutschein metni" value={draft.vouchers.body} onChange={(value) => setDraft((current) => ({ ...current, vouchers: { ...current.vouchers, body: value } }))} />
+              <TextArea label="Gutschein değerleri (her satır bir değer)" value={listToText(draft.vouchers.values)} onChange={(value) => setDraft((current) => ({ ...current, vouchers: { ...current.vouchers, values: textToList(value) } }))} />
+            </div>
+          </AdminSection>
+
+          <AdminSection id="admin-contact" title="Kontakt ve Footer">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Kontakt başlığı" value={draft.contact.title} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, title: value } }))} />
+              <Field label="Ad" value={draft.contact.name} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, name: value } }))} />
+              <Field label="Adres" value={draft.contact.address} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, address: value } }))} />
+              <Field label="Telefon" value={draft.contact.phone} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, phone: value } }))} />
+              <Field label="E-posta" value={draft.contact.email} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, email: value } }))} />
+              <Field label="Harita URL" value={draft.contact.mapUrl} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, mapUrl: value } }))} />
+              <Field label="Harita butonu" value={draft.contact.mapLabel} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, mapLabel: value } }))} />
+              <Field label="Footer sol" value={draft.footer.copyright} onChange={(value) => setDraft((current) => ({ ...current, footer: { ...current.footer, copyright: value } }))} />
+              <Field label="Footer sağ" value={draft.footer.imprint} onChange={(value) => setDraft((current) => ({ ...current, footer: { ...current.footer, imprint: value } }))} />
+            </div>
+          </AdminSection>
+
+          <a
+            href="#top"
+            className="inline-flex h-11 w-max items-center justify-center gap-2 rounded-md bg-[#1e2b25] px-4 text-sm font-medium text-white hover:text-white"
+          >
+            <Eye className="size-4" />
+            Canlı site önizlemesine dön
+          </a>
+        </div>
+      </div>
+    </main>
+  )
+}
+
+function AdminSection({
+  id,
+  title,
+  children,
+}: {
+  id: string
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <section id={id} className="rounded-lg border border-[#ded4c4] bg-white p-5 shadow-sm sm:p-6">
+      <h2 className="mb-5 text-2xl font-semibold text-[#18221e]">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-[#43534b]">
+      {label}
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 rounded-md border border-[#d1c5b7] bg-white px-3"
+      />
+    </label>
+  )
+}
+
+function TextArea({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-[#43534b]">
+      {label}
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-28 rounded-md border border-[#d1c5b7] bg-white p-3 leading-6"
+      />
+    </label>
   )
 }
 
