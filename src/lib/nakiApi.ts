@@ -1,11 +1,9 @@
-import { defaultSiteContent, type ServiceIcon, type SiteContent } from "@/data/siteContent"
+import type { ServiceIcon, SiteContent } from "@/data/siteContent"
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "https://localhost:7095").replace(
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5002").replace(
   /\/$/,
   ""
 )
-
-const adminSessionKey = "naki-admin-session"
 
 type BaseResponse<T> = {
   succeeded: boolean
@@ -35,6 +33,7 @@ type HeroDto = Entity & {
   secondaryCta: string
   contactLabel: string
   contactBody: string
+  imageUrl?: string | null
 }
 
 type NavigationMenuDto = Entity & {
@@ -156,33 +155,6 @@ const endpoints = {
   users: "User",
 } as const
 
-function readSession() {
-  const stored = window.localStorage.getItem(adminSessionKey)
-
-  if (!stored) {
-    return null
-  }
-
-  try {
-    return JSON.parse(stored) as AdminSession
-  } catch {
-    window.localStorage.removeItem(adminSessionKey)
-    return null
-  }
-}
-
-export function getStoredAdminSession() {
-  return readSession()
-}
-
-export function clearStoredAdminSession() {
-  window.localStorage.removeItem(adminSessionKey)
-}
-
-function storeSession(session: AdminSession) {
-  window.localStorage.setItem(adminSessionKey, JSON.stringify(session))
-}
-
 function responseMessage<T>(response: BaseResponse<T>) {
   return response.message ?? response.errors?.filter(Boolean).join(", ") ?? "API istegi basarisiz."
 }
@@ -199,6 +171,24 @@ async function request<T>(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
+  })
+
+  const payload = (await response.json().catch(() => null)) as BaseResponse<T> | null
+
+  if (!response.ok || !payload?.succeeded) {
+    throw new Error(payload ? responseMessage(payload) : `API hatasi: ${response.status}`)
+  }
+
+  return payload.data as T
+}
+
+async function upload<T>(path: string, formData: FormData, token: string) {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
   })
 
   const payload = (await response.json().catch(() => null)) as BaseResponse<T> | null
@@ -317,80 +307,64 @@ function contentFromSnapshot(snapshot: ApiSnapshot): SiteContent {
   const contact = snapshot.contacts[0]
   const footer = snapshot.footers[0]
 
-  return {
-    nav: navigation
-      ? {
-          services: navigation.serviceName,
-          about: navigation.about,
-          practice: navigation.practice,
-          appointment: navigation.appointment,
-          contact: navigation.contact,
-          call: navigation.call,
-        }
-      : defaultSiteContent.nav,
-    hero: hero ?? defaultSiteContent.hero,
-    benefits: snapshot.benefits.length
-      ? snapshot.benefits.map((benefit) => benefit.benefitName)
-      : defaultSiteContent.benefits,
-    services: snapshot.services.length
-      ? snapshot.services.map((service) => {
-          const times = snapshot.serviceTimes
-            .filter((time) => time.serviceId === service.id)
-            .map(timeLabel)
+  if (!hero || !navigation || !practice || !about || !appointment || !voucher || !contact || !footer) {
+    throw new Error("API icerigi eksik. Lutfen seed isleminin calistigindan emin ol.")
+  }
 
-          return {
-            title: service.title,
-            price: `ab ${service.price}${service.currency}`,
-            text: service.description,
-            times,
-            icon: serviceIcon(service.icon),
-          }
-        })
-      : defaultSiteContent.services,
-    practice: practice
-      ? {
-          eyebrow: practice.eyebrow,
-          title: practice.title,
-          cards: snapshot.practiceCards.length
-            ? snapshot.practiceCards
-                .filter((card) => card.practiceId === practice.id)
-                .map((card) => ({ title: card.title, text: card.description }))
-            : defaultSiteContent.practice.cards,
-        }
-      : defaultSiteContent.practice,
-    about: about
-      ? {
-          eyebrow: about.eyebrow,
-          title: about.title,
-          body: about.description,
-          stats: snapshot.aboutStats.length
-            ? snapshot.aboutStats
-                .filter((stat) => stat.aboutId === about.id)
-                .map((stat) => ({ value: stat.statValue, text: stat.description }))
-            : defaultSiteContent.about.stats,
-        }
-      : defaultSiteContent.about,
-    appointment: appointment
-      ? {
-          eyebrow: appointment.eyebrow,
-          title: appointment.title,
-          body: appointment.description,
-          submitLabel: appointment.buttonText,
-        }
-      : defaultSiteContent.appointment,
-    vouchers: voucher
-      ? {
-          title: voucher.title,
-          body: voucher.description,
-          values: snapshot.voucherPrices.length
-            ? snapshot.voucherPrices
-                .filter((price) => price.voucherId === voucher.id)
-                .map((price) => `${price.price}${price.currency}`)
-            : defaultSiteContent.vouchers.values,
-        }
-      : defaultSiteContent.vouchers,
-    contact: contact ?? defaultSiteContent.contact,
-    footer: footer ?? defaultSiteContent.footer,
+  return {
+    nav: {
+      services: navigation.serviceName,
+      about: navigation.about,
+      practice: navigation.practice,
+      appointment: navigation.appointment,
+      contact: navigation.contact,
+      call: navigation.call,
+    },
+    hero,
+    benefits: snapshot.benefits.map((benefit) => benefit.benefitName),
+    services: snapshot.services.map((service) => {
+      const times = snapshot.serviceTimes
+        .filter((time) => time.serviceId === service.id)
+        .map(timeLabel)
+
+      return {
+        title: service.title,
+        price: `ab ${service.price}${service.currency}`,
+        text: service.description,
+        times,
+        icon: serviceIcon(service.icon),
+      }
+    }),
+    practice: {
+      eyebrow: practice.eyebrow,
+      title: practice.title,
+      cards: snapshot.practiceCards
+        .filter((card) => card.practiceId === practice.id)
+        .map((card) => ({ title: card.title, text: card.description })),
+    },
+    about: {
+      eyebrow: about.eyebrow,
+      title: about.title,
+      body: about.description,
+      stats: snapshot.aboutStats
+        .filter((stat) => stat.aboutId === about.id)
+        .map((stat) => ({ value: stat.statValue, text: stat.description })),
+    },
+    appointment: {
+      eyebrow: appointment.eyebrow,
+      title: appointment.title,
+      body: appointment.description,
+      submitLabel: appointment.buttonText,
+    },
+    vouchers: {
+      title: voucher.title,
+      body: voucher.description,
+      values: snapshot.voucherPrices
+        .filter((price) => price.voucherId === voucher.id)
+        .map((price) => `${price.price}${price.currency}`),
+    },
+    contact,
+    footer,
   }
 }
 
@@ -616,14 +590,18 @@ export async function saveSiteContentToApi(content: SiteContent, token: string) 
   })
 }
 
+export async function uploadHeroImage(file: File, token: string) {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  return upload<string>(`/api/${endpoints.heroes}/upload-image`, formData, token)
+}
+
 export async function loginAdmin(email: string, password: string) {
-  const session = await request<AdminSession>(`/api/${endpoints.users}/login`, {
+  return request<AdminSession>(`/api/${endpoints.users}/login`, {
     method: "POST",
     body: JSON.stringify({ email, password }),
   })
-
-  storeSession(session)
-  return session
 }
 
 export async function logoutAdmin(session: AdminSession) {
@@ -636,5 +614,4 @@ export async function logoutAdmin(session: AdminSession) {
     session.token
   ).catch(() => undefined)
 
-  clearStoredAdminSession()
 }

@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
-import type { ChangeEvent, Dispatch, ReactNode, SetStateAction } from "react"
+import type { ReactNode } from "react"
 import {
   ArrowRight,
   Check,
-  Database,
-  Download,
   Eye,
   Gift,
   HeartPulse,
@@ -14,34 +12,24 @@ import {
   Menu,
   Phone,
   Plus,
-  RotateCcw,
   Save,
   Sparkles,
   Timer,
   Trash2,
-  Upload,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import nakiLogo from "@/assets/images/logo_naki.svg"
 import nakiPortrait from "@/assets/images/naki.jpg"
+import type { ServiceIcon, SiteContent } from "@/data/siteContent"
 import {
-  defaultSiteContent,
-  siteContentVersion,
-  type ServiceIcon,
-  type SiteContent,
-} from "@/data/siteContent"
-import {
-  clearStoredAdminSession,
-  getStoredAdminSession,
   loadSiteContentFromApi,
   loginAdmin,
   logoutAdmin,
   saveSiteContentToApi,
+  uploadHeroImage,
   type AdminSession,
 } from "@/lib/nakiApi"
-
-const contentStorageKey = "naki-site-content"
 
 const serviceIcons = {
   heart: HeartPulse,
@@ -73,20 +61,8 @@ function phoneHref(phone: string) {
 }
 
 function useSiteContent() {
-  const [content, setContent] = useState<SiteContent>(() => {
-    const stored = window.localStorage.getItem(contentStorageKey)
-
-    if (!stored) {
-      return defaultSiteContent
-    }
-
-    try {
-      const parsed = JSON.parse(stored) as { content?: SiteContent }
-      return parsed.content ?? defaultSiteContent
-    } catch {
-      return defaultSiteContent
-    }
-  })
+  const [content, setContent] = useState<SiteContent | null>(null)
+  const [status, setStatus] = useState("API icerigi yukleniyor...")
 
   useEffect(() => {
     let isMounted = true
@@ -95,23 +71,21 @@ function useSiteContent() {
       .then((apiContent) => {
         if (isMounted) {
           setContent(apiContent)
+          setStatus("")
         }
       })
-      .catch(() => undefined)
+      .catch((error) => {
+        if (isMounted) {
+          setStatus(error instanceof Error ? error.message : "API icerigi yuklenemedi.")
+        }
+      })
 
     return () => {
       isMounted = false
     }
   }, [])
 
-  useEffect(() => {
-    window.localStorage.setItem(
-      contentStorageKey,
-      JSON.stringify({ version: siteContentVersion, content }, null, 2)
-    )
-  }, [content])
-
-  return [content, setContent] as const
+  return { content, setContent, status } as const
 }
 
 function useAdminRoute() {
@@ -147,8 +121,19 @@ function FlowerLayer() {
 }
 
 export function App() {
-  const [content, setContent] = useSiteContent()
+  const { content, setContent, status } = useSiteContent()
   const isAdmin = useAdminRoute()
+
+  if (!content) {
+    return (
+      <main className="grid min-h-svh place-items-center bg-[#f8f5ef] px-5 text-[#1c2621]">
+        <div className="max-w-md rounded-lg border border-[#e7dfd4] bg-white p-6 text-center shadow-sm">
+          <img src={nakiLogo} alt="Naki" className="mx-auto mb-5 h-20 object-contain" />
+          <p className="text-sm font-medium text-[#52625a]">{status}</p>
+        </div>
+      </main>
+    )
+  }
 
   if (isAdmin) {
     return <AdminPanel content={content} setContent={setContent} />
@@ -162,6 +147,7 @@ function PublicSite({ content }: { content: SiteContent }) {
     () => content.services.map((service) => service.title),
     [content.services]
   )
+  const heroImageSrc = content.hero.imageUrl?.trim() || nakiPortrait
 
   return (
     <main className="min-h-svh bg-[#f8f5ef] text-[#1c2621]">
@@ -243,7 +229,7 @@ function PublicSite({ content }: { content: SiteContent }) {
 
           <div className="relative min-h-[420px] overflow-hidden rounded-lg border border-white/55 shadow-[0_28px_80px_rgba(31,48,39,0.18)] lg:min-h-[680px]">
             <img
-              src={nakiPortrait}
+              src={heroImageSrc}
               alt="Naki Öztürk"
               className="absolute inset-0 size-full object-cover"
             />
@@ -358,7 +344,7 @@ function PublicSite({ content }: { content: SiteContent }) {
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1.08fr_0.92fr]">
           <div className="relative min-h-[360px] overflow-hidden rounded-lg border border-[#e2d8c9] bg-[#f1eadc] shadow-[0_24px_70px_rgba(32,45,38,0.12)] sm:min-h-[440px] lg:min-h-[560px]">
             <img
-              src={nakiPortrait}
+              src={heroImageSrc}
               alt="Naki Öztürk, Masseur in Pramet"
               className="absolute inset-0 size-full object-cover object-center"
             />
@@ -513,13 +499,14 @@ function AdminPanel({
   setContent,
 }: {
   content: SiteContent
-  setContent: Dispatch<SetStateAction<SiteContent>>
+  setContent: (content: SiteContent) => void
 }) {
   const [draft, setDraft] = useState(savedContent)
   const [status, setStatus] = useState("Degisiklikler taslakta bekler; Kaydet butonuna basinca API'ye yazilir.")
-  const [session, setSession] = useState<AdminSession | null>(() => getStoredAdminSession())
+  const [session, setSession] = useState<AdminSession | null>(null)
   const [credentials, setCredentials] = useState({ email: "", password: "" })
   const [isSaving, setIsSaving] = useState(false)
+  const draftHeroImageSrc = draft.hero.imageUrl?.trim() || nakiPortrait
 
   useEffect(() => {
     setDraft(savedContent)
@@ -553,9 +540,9 @@ function AdminPanel({
     try {
       const loginSession = await loginAdmin(credentials.email, credentials.password)
       setSession(loginSession)
+      setCredentials({ email: "", password: "" })
       setStatus(`${loginSession.fullName} olarak giris yapildi.`)
     } catch (error) {
-      clearStoredAdminSession()
       setStatus(error instanceof Error ? error.message : "Giris basarisiz.")
     } finally {
       setIsSaving(false)
@@ -571,47 +558,70 @@ function AdminPanel({
     setStatus("Oturum kapatildi.")
   }
 
-  const downloadDatabase = () => {
-    const payload = JSON.stringify({ version: siteContentVersion, content: draft }, null, 2)
-    const blob = new Blob([payload], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = "naki-site-draft.json"
-    link.click()
-    URL.revokeObjectURL(url)
-    setStatus("Veritabanı JSON olarak indirildi.")
-  }
-
-  const importDatabase = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-
+  const uploadHeroVisual = async (file: File | undefined) => {
     if (!file) {
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(String(reader.result)) as { content?: SiteContent }
-        if (!parsed.content) {
-          throw new Error("Missing content")
-        }
-        setDraft(parsed.content)
-        setStatus("Veritabanı taslağa yüklendi. Uygulamak için Kaydedildi butonuna bas.")
-      } catch {
-        setStatus("JSON okunamadı. Lütfen admin panelinden indirilen dosyayı kullan.")
-      }
+    if (!session) {
+      setStatus("Görsel yüklemek için önce admin girişi yapmalısın.")
+      return
     }
-    reader.readAsText(file)
-    event.target.value = ""
+
+    setIsSaving(true)
+    setStatus("Hero görseli API'ye yükleniyor...")
+
+    try {
+      const imageUrl = await uploadHeroImage(file, session.token)
+      setDraft((current) => ({ ...current, hero: { ...current.hero, imageUrl } }))
+      setStatus("Hero görseli yüklendi. Kalıcı olması için Kaydet butonuna bas.")
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Görsel yüklenirken hata oluştu.")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const resetContent = () => {
-    if (window.confirm("Tüm yerel değişiklikleri sıfırlamak istiyor musun?")) {
-      setDraft(defaultSiteContent)
-      setStatus("Varsayılan içerik taslağa alındı. Uygulamak için Kaydedildi butonuna bas.")
-    }
+  if (!session) {
+    return (
+      <main className="grid min-h-svh place-items-center bg-[#f4efe6] px-5 text-[#1c2621]">
+        <section className="w-full max-w-md rounded-lg border border-[#ded4c4] bg-white p-6 shadow-sm">
+          <img src={nakiLogo} alt="Naki" className="mb-6 h-20 object-contain object-left" />
+          <h1 className="text-2xl font-semibold text-[#18221e]">Admin Girisi</h1>
+          <p className="mt-2 text-sm leading-6 text-[#52625a]">{status}</p>
+          <div className="mt-6 grid gap-4">
+            <Field
+              label="E-posta"
+              value={credentials.email}
+              onChange={(value) => setCredentials((current) => ({ ...current, email: value }))}
+            />
+            <label className="grid gap-2 text-sm font-medium text-[#43534b]">
+              Sifre
+              <input
+                type="password"
+                value={credentials.password}
+                onChange={(event) =>
+                  setCredentials((current) => ({ ...current, password: event.target.value }))
+                }
+                className="h-11 rounded-md border border-[#d1c5b7] bg-white px-3"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={login}
+              disabled={isSaving}
+              className="inline-flex h-11 items-center justify-center rounded-md bg-[#28594a] px-4 text-sm font-medium text-white"
+            >
+              {isSaving ? "Giris yapiliyor" : "Giris yap"}
+            </button>
+            <a href="#top" className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#d1c5b7] bg-white px-4 text-sm font-medium text-[#28594a]">
+              <Home className="size-4" />
+              Siteye don
+            </a>
+          </div>
+        </section>
+      </main>
+    )
   }
 
   return (
@@ -620,8 +630,7 @@ function AdminPanel({
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-4 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-[#9b6040]">
-              <Database className="size-4" />
-              Taşınabilir İçerik Veritabanı
+              API Yonetimi
             </p>
             <h1 className="mt-2 text-3xl font-semibold text-[#18221e]">
               Naki Admin Panel
@@ -653,27 +662,6 @@ function AdminPanel({
                 Oturumu kapat
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={downloadDatabase}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#d1c5b7] bg-white px-4 text-sm font-medium"
-            >
-              <Download className="size-4" />
-              JSON indir
-            </button>
-            <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-[#d1c5b7] bg-white px-4 text-sm font-medium">
-              <Upload className="size-4" />
-              JSON yükle
-              <input type="file" accept="application/json" onChange={importDatabase} className="sr-only" />
-            </label>
-            <button
-              type="button"
-              onClick={resetContent}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#d1c5b7] bg-white px-4 text-sm font-medium"
-            >
-              <RotateCcw className="size-4" />
-              Sıfırla
-            </button>
           </div>
         </div>
       </header>
@@ -705,41 +693,28 @@ function AdminPanel({
         </aside>
 
         <div className="grid gap-6">
-          {!session ? (
-            <AdminSection id="admin-login" title="Admin Girisi">
-              <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
-                <Field
-                  label="E-posta"
-                  value={credentials.email}
-                  onChange={(value) => setCredentials((current) => ({ ...current, email: value }))}
-                />
-                <label className="grid gap-2 text-sm font-medium text-[#43534b]">
-                  Sifre
-                  <input
-                    type="password"
-                    value={credentials.password}
-                    onChange={(event) =>
-                      setCredentials((current) => ({ ...current, password: event.target.value }))
-                    }
-                    className="h-11 rounded-md border border-[#d1c5b7] bg-white px-3"
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={login}
-                  disabled={isSaving}
-                  className="inline-flex h-11 items-center justify-center rounded-md bg-[#28594a] px-4 text-sm font-medium text-white"
-                >
-                  Giris yap
-                </button>
-              </div>
-            </AdminSection>
-          ) : null}
           <AdminSection id="admin-hero" title="Hero ve Menü">
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Hero üst etiket" value={draft.hero.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, eyebrow: value } }))} />
               <Field label="Başlık" value={draft.hero.title} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, title: value } }))} />
               <TextArea label="Açıklama" value={draft.hero.body} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, body: value } }))} />
+              <Field label="Hero görsel URL" value={draft.hero.imageUrl ?? ""} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, imageUrl: value.trim() || null } }))} />
+              <label className="grid gap-2 text-sm font-medium text-[#43534b]">
+                Hero görsel yükle
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => {
+                    void uploadHeroVisual(event.target.files?.[0])
+                    event.target.value = ""
+                  }}
+                  disabled={isSaving}
+                  className="h-11 rounded-md border border-[#d1c5b7] bg-white px-3 py-2"
+                />
+              </label>
+              <div className="min-h-44 overflow-hidden rounded-lg border border-[#ded4c4] bg-[#fbfaf7]">
+                <img src={draftHeroImageSrc} alt="Hero görsel önizleme" className="h-full min-h-44 w-full object-cover" />
+              </div>
               <TextArea label="Faydalar (her satır bir madde)" value={listToText(draft.benefits)} onChange={(value) => setDraft((current) => ({ ...current, benefits: textToList(value) }))} />
               <Field label="Ana buton" value={draft.hero.primaryCta} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, primaryCta: value } }))} />
               <Field label="İkinci buton" value={draft.hero.secondaryCta} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, secondaryCta: value } }))} />
