@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button"
 import nakiLogo from "@/assets/images/logo_naki.svg"
 import nakiPortrait from "@/assets/images/naki.jpg"
+import { adminPageFromHash, adminPages, type AdminPageId } from "@/admin/adminNavigation"
 import type { ServiceIcon, SiteContent } from "@/data/siteContent"
 import {
   createMassageVoucherRequest,
@@ -30,10 +31,12 @@ import {
   loadSiteContentFromApi,
   loginAdmin,
   logoutAdmin,
-  saveSiteContentToApi,
+  saveSiteContentModuleToApi,
+  uploadAboutImage,
   uploadHeroImage,
   type AdminSession,
   type MassageVoucherRequestDto,
+  type SiteContentModule,
   type ValueVoucherRequestDto,
 } from "@/lib/nakiApi"
 
@@ -49,6 +52,39 @@ const iconLabels: Record<ServiceIcon, string> = {
   timer: "Zeit",
   leaf: "Blatt",
   sparkles: "Glanz",
+}
+
+const adminSessionStorageKey = "naki.admin.session"
+
+function readStoredAdminSession(): AdminSession | null {
+  const rawSession = window.sessionStorage.getItem(adminSessionStorageKey)
+
+  if (!rawSession) {
+    return null
+  }
+
+  try {
+    const session = JSON.parse(rawSession) as AdminSession
+    const expirationTime = new Date(session.expiration).getTime()
+
+    if (!session.token || Number.isNaN(expirationTime) || expirationTime <= Date.now()) {
+      window.sessionStorage.removeItem(adminSessionStorageKey)
+      return null
+    }
+
+    return session
+  } catch {
+    window.sessionStorage.removeItem(adminSessionStorageKey)
+    return null
+  }
+}
+
+function storeAdminSession(session: AdminSession) {
+  window.sessionStorage.setItem(adminSessionStorageKey, JSON.stringify(session))
+}
+
+function clearStoredAdminSession() {
+  window.sessionStorage.removeItem(adminSessionStorageKey)
 }
 
 function listToText(items: string[]) {
@@ -127,7 +163,7 @@ function useAdminRoute() {
 
   useEffect(() => {
     const handleRoute = () => {
-      setIsAdmin(window.location.hash === "#/admin" || window.location.pathname.endsWith("/admin"))
+      setIsAdmin(window.location.hash.startsWith("#/admin") || window.location.pathname.endsWith("/admin"))
     }
 
     window.addEventListener("hashchange", handleRoute)
@@ -180,10 +216,57 @@ function PublicSite({ content }: { content: SiteContent }) {
     [content.services]
   )
   const heroImageSrc = content.hero.imageUrl?.trim() || nakiPortrait
+  const aboutImageSrc = content.about.imageUrl?.trim() || nakiPortrait
+  const defaultAppointmentService = firstService(content)
+  const [appointmentForm, setAppointmentForm] = useState(() => ({
+    serviceTitle: defaultAppointmentService?.title ?? "",
+    duration: defaultAppointmentService?.times[0] ?? "",
+  }))
   const [isGutscheinOpen, setIsGutscheinOpen] = useState(false)
   const [gutscheinForm, setGutscheinForm] = useState(() => initialGutscheinForm(content))
   const [gutscheinStatus, setGutscheinStatus] = useState("")
   const [isSendingGutschein, setIsSendingGutschein] = useState(false)
+  const selectedAppointmentService =
+    content.services.find((service) => service.title === appointmentForm.serviceTitle) ??
+    defaultAppointmentService
+  const appointmentTimes = selectedAppointmentService?.times ?? []
+
+  const changeAppointmentService = (serviceTitle: string) => {
+    const nextService = content.services.find((service) => service.title === serviceTitle)
+
+    setAppointmentForm({
+      serviceTitle,
+      duration: nextService?.times[0] ?? "",
+    })
+  }
+
+  useEffect(() => {
+    const currentService = content.services.find((service) => service.title === appointmentForm.serviceTitle)
+
+    if (!currentService) {
+      const nextService = firstService(content)
+      const nextForm = {
+        serviceTitle: nextService?.title ?? "",
+        duration: nextService?.times[0] ?? "",
+      }
+
+      if (
+        appointmentForm.serviceTitle !== nextForm.serviceTitle ||
+        appointmentForm.duration !== nextForm.duration
+      ) {
+        setAppointmentForm(nextForm)
+      }
+      return
+    }
+
+    const nextDuration = currentService.times[0] ?? ""
+    if (appointmentForm.duration !== nextDuration && !currentService.times.includes(appointmentForm.duration)) {
+      setAppointmentForm((current) => ({
+        ...current,
+        duration: nextDuration,
+      }))
+    }
+  }, [appointmentForm.duration, appointmentForm.serviceTitle, content])
 
   const openMassageGutschein = (service = firstService(content)) => {
     setGutscheinForm((current) => ({
@@ -429,7 +512,7 @@ function PublicSite({ content }: { content: SiteContent }) {
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1.08fr_0.92fr]">
           <div className="relative min-h-[360px] overflow-hidden rounded-lg border border-[#e2d8c9] bg-[#f1eadc] shadow-[0_24px_70px_rgba(32,45,38,0.12)] sm:min-h-[440px] lg:min-h-[560px]">
             <img
-              src={heroImageSrc}
+              src={aboutImageSrc}
               alt="Naki Öztürk, Masseur in Pramet"
               className="absolute inset-0 size-full object-cover object-center"
             />
@@ -480,21 +563,29 @@ function PublicSite({ content }: { content: SiteContent }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium">
                 Massageart
-                <select className="h-12 rounded-md border border-[#d9d1c5] bg-[#fbfaf7] px-3">
-                  <option>Bitte auswählen</option>
+                <select
+                  value={appointmentForm.serviceTitle}
+                  onChange={(event) => changeAppointmentService(event.target.value)}
+                  className="h-12 rounded-md border border-[#d9d1c5] bg-[#fbfaf7] px-3"
+                >
+                  <option value="">Bitte auswählen</option>
                   {serviceTitles.map((title) => (
-                    <option key={title}>{title}</option>
+                    <option value={title} key={title}>{title}</option>
                   ))}
                 </select>
               </label>
               <label className="grid gap-2 text-sm font-medium">
                 Dauer
-                <select className="h-12 rounded-md border border-[#d9d1c5] bg-[#fbfaf7] px-3">
-                  <option>Bitte auswählen</option>
-                  <option>25 Minuten</option>
-                  <option>50 Minuten</option>
-                  <option>60 Minuten</option>
-                  <option>80 Minuten</option>
+                <select
+                  value={appointmentForm.duration}
+                  onChange={(event) => setAppointmentForm((current) => ({ ...current, duration: event.target.value }))}
+                  disabled={!appointmentForm.serviceTitle || appointmentTimes.length === 0}
+                  className="h-12 rounded-md border border-[#d9d1c5] bg-[#fbfaf7] px-3 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">Bitte auswählen</option>
+                  {appointmentTimes.map((time) => (
+                    <option value={time} key={time}>{time}</option>
+                  ))}
                 </select>
               </label>
             </div>
@@ -803,16 +894,30 @@ function AdminPanel({
 }) {
   const [draft, setDraft] = useState(savedContent)
   const [status, setStatus] = useState("Degisiklikler taslakta bekler; Kaydet butonuna basinca API'ye yazilir.")
-  const [session, setSession] = useState<AdminSession | null>(null)
+  const [session, setSession] = useState<AdminSession | null>(() => readStoredAdminSession())
   const [credentials, setCredentials] = useState({ email: "", password: "" })
   const [isSaving, setIsSaving] = useState(false)
   const [valueVoucherRequests, setValueVoucherRequests] = useState<ValueVoucherRequestDto[]>([])
   const [massageVoucherRequests, setMassageVoucherRequests] = useState<MassageVoucherRequestDto[]>([])
+  const [activePage, setActivePage] = useState<AdminPageId>(() => adminPageFromHash())
   const draftHeroImageSrc = draft.hero.imageUrl?.trim() || nakiPortrait
+  const draftAboutImageSrc = draft.about.imageUrl?.trim() || nakiPortrait
 
   useEffect(() => {
     setDraft(savedContent)
   }, [savedContent])
+
+  useEffect(() => {
+    const handleRoute = () => {
+      setActivePage(adminPageFromHash())
+    }
+
+    window.addEventListener("hashchange", handleRoute)
+
+    return () => {
+      window.removeEventListener("hashchange", handleRoute)
+    }
+  }, [])
 
   useEffect(() => {
     if (!session) {
@@ -827,6 +932,11 @@ function AdminPanel({
         setMassageVoucherRequests(massageRequests)
       })
       .catch((error) => {
+        if (error instanceof Error && error.message.includes("401")) {
+          clearStoredAdminSession()
+          setSession(null)
+        }
+
         setStatus(error instanceof Error ? error.message : "Gutschein kayıtları yüklenemedi.")
       })
   }, [session])
@@ -837,16 +947,25 @@ function AdminPanel({
       return
     }
 
+    if (activePage === "gutschein-requests") {
+      setStatus("Gutschein kayıtları sadece görüntülenir; kaydedilecek içerik değişikliği yok.")
+      return
+    }
+
     setIsSaving(true)
-    setStatus("API'ye kaydediliyor...")
+    setStatus("Aktif modül API'ye kaydediliyor...")
 
     try {
-      const syncedContent = await saveSiteContentToApi(draft, session.token)
+      const syncedContent = await saveSiteContentModuleToApi(
+        draft,
+        session.token,
+        activePage as SiteContentModule
+      )
       setDraft(syncedContent)
       setContent(syncedContent)
-      setStatus("Taslak API'ye kaydedildi ve site icerigi yenilendi.")
+      setStatus("Aktif modül API'ye kaydedildi ve site içeriği yenilendi.")
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "API kaydi sirasinda hata olustu.")
+      setStatus(error instanceof Error ? error.message : "Modül kaydı sırasında hata oluştu.")
     } finally {
       setIsSaving(false)
     }
@@ -858,6 +977,7 @@ function AdminPanel({
 
     try {
       const loginSession = await loginAdmin(credentials.email, credentials.password)
+      storeAdminSession(loginSession)
       setSession(loginSession)
       setCredentials({ email: "", password: "" })
       setStatus(`${loginSession.fullName} olarak giris yapildi.`)
@@ -874,6 +994,7 @@ function AdminPanel({
     }
 
     setSession(null)
+    clearStoredAdminSession()
     setStatus("Oturum kapatildi.")
   }
 
@@ -894,6 +1015,30 @@ function AdminPanel({
       const imageUrl = await uploadHeroImage(file, session.token)
       setDraft((current) => ({ ...current, hero: { ...current.hero, imageUrl } }))
       setStatus("Hero görseli yüklendi. Kalıcı olması için Kaydet butonuna bas.")
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Görsel yüklenirken hata oluştu.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const uploadAboutVisual = async (file: File | undefined) => {
+    if (!file) {
+      return
+    }
+
+    if (!session) {
+      setStatus("Görsel yüklemek için önce admin girişi yapmalısın.")
+      return
+    }
+
+    setIsSaving(true)
+    setStatus("Über Naki görseli API'ye yükleniyor...")
+
+    try {
+      const imageUrl = await uploadAboutImage(file, session.token)
+      setDraft((current) => ({ ...current, about: { ...current.about, imageUrl } }))
+      setStatus("Über Naki görseli yüklendi. Kalıcı olması için Kaydet butonuna bas.")
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Görsel yüklenirken hata oluştu.")
     } finally {
@@ -988,17 +1133,15 @@ function AdminPanel({
       <div className="mx-auto grid max-w-7xl gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[16rem_1fr]">
         <aside className="h-max rounded-lg border border-[#ded4c4] bg-white p-4">
           <nav className="grid gap-1 text-sm font-medium text-[#52625a]">
-            {[
-              ["#admin-hero", "Hero"],
-              ["#admin-services", "Hizmetler"],
-              ["#admin-practice", "Praxis"],
-              ["#admin-about", "Über Naki"],
-              ["#admin-appointment", "Termin"],
-              ["#admin-gutschein-requests", "Gutschein Kayıtları"],
-              ["#admin-contact", "Kontakt"],
-            ].map(([href, label]) => (
-              <a className="rounded-md px-3 py-2 hover:bg-[#eef3ec]" href={href} key={href}>
-                {label}
+            {adminPages.map((page) => (
+              <a
+                className={`rounded-md px-3 py-2 hover:bg-[#eef3ec] ${
+                  activePage === page.id ? "bg-[#eef3ec] text-[#28594a]" : ""
+                }`}
+                href={`#/admin/${page.id}`}
+                key={page.id}
+              >
+                {page.label}
               </a>
             ))}
           </nav>
@@ -1013,6 +1156,7 @@ function AdminPanel({
         </aside>
 
         <div className="grid gap-6">
+          {activePage === "hero" ? (
           <AdminSection id="admin-hero" title="Hero ve Menü">
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Hero üst etiket" value={draft.hero.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, eyebrow: value } }))} />
@@ -1042,7 +1186,9 @@ function AdminPanel({
               <TextArea label="İletişim kart metni" value={draft.hero.contactBody} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, contactBody: value } }))} />
             </div>
           </AdminSection>
+          ) : null}
 
+          {activePage === "services" ? (
           <AdminSection id="admin-services" title="Hizmetler ve Fiyatlar">
             <div className="grid gap-4">
               {draft.services.map((service, index) => (
@@ -1073,7 +1219,7 @@ function AdminPanel({
                         ))}
                       </select>
                     </label>
-                    <TextArea label="Süreler / paketler (her satır bir etiket)" value={listToText(service.times)} onChange={(value) => setDraft((current) => ({ ...current, services: current.services.map((item, serviceIndex) => serviceIndex === index ? { ...item, times: textToList(value) } : item) }))} />
+                    <ListTextArea label="Süreler / paketler (her satır bir etiket)" items={service.times} onChange={(items) => setDraft((current) => ({ ...current, services: current.services.map((item, serviceIndex) => serviceIndex === index ? { ...item, times: items } : item) }))} />
                     <TextArea label="Açıklama" value={service.text} onChange={(value) => setDraft((current) => ({ ...current, services: current.services.map((item, serviceIndex) => serviceIndex === index ? { ...item, text: value } : item) }))} />
                   </div>
                 </div>
@@ -1088,7 +1234,9 @@ function AdminPanel({
               </button>
             </div>
           </AdminSection>
+          ) : null}
 
+          {activePage === "practice" ? (
           <AdminSection id="admin-practice" title="Praxis İçeriği">
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Etiket" value={draft.practice.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, practice: { ...current.practice, eyebrow: value } }))} />
@@ -1101,12 +1249,31 @@ function AdminPanel({
               ))}
             </div>
           </AdminSection>
+          ) : null}
 
+          {activePage === "about" ? (
           <AdminSection id="admin-about" title="Über Naki">
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Etiket" value={draft.about.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, about: { ...current.about, eyebrow: value } }))} />
               <Field label="Başlık" value={draft.about.title} onChange={(value) => setDraft((current) => ({ ...current, about: { ...current.about, title: value } }))} />
               <TextArea label="Metin" value={draft.about.body} onChange={(value) => setDraft((current) => ({ ...current, about: { ...current.about, body: value } }))} />
+              <Field label="Über Naki görsel URL" value={draft.about.imageUrl ?? ""} onChange={(value) => setDraft((current) => ({ ...current, about: { ...current.about, imageUrl: value.trim() || null } }))} />
+              <label className="grid gap-2 text-sm font-medium text-[#43534b]">
+                Über Naki görsel yükle
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => {
+                    void uploadAboutVisual(event.target.files?.[0])
+                    event.target.value = ""
+                  }}
+                  disabled={isSaving}
+                  className="h-11 rounded-md border border-[#d1c5b7] bg-white px-3 py-2"
+                />
+              </label>
+              <div className="min-h-44 overflow-hidden rounded-lg border border-[#ded4c4] bg-[#fbfaf7]">
+                <img src={draftAboutImageSrc} alt="Über Naki görsel önizleme" className="h-full min-h-44 w-full object-cover" />
+              </div>
               {draft.about.stats.map((stat, index) => (
                 <div className="grid gap-4 rounded-lg border border-[#ded4c4] bg-[#fbfaf7] p-4" key={`about-stat-${index}`}>
                   <Field label="Vurgu değeri" value={stat.value} onChange={(value) => setDraft((current) => ({ ...current, about: { ...current.about, stats: current.about.stats.map((item, statIndex) => statIndex === index ? { ...item, value } : item) } }))} />
@@ -1115,7 +1282,9 @@ function AdminPanel({
               ))}
             </div>
           </AdminSection>
+          ) : null}
 
+          {activePage === "appointment" ? (
           <AdminSection id="admin-appointment" title="Termin ve Gutschein">
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Termin etiketi" value={draft.appointment.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, appointment: { ...current.appointment, eyebrow: value } }))} />
@@ -1127,7 +1296,9 @@ function AdminPanel({
               <TextArea label="Gutschein değerleri (her satır bir değer)" value={listToText(draft.vouchers.values)} onChange={(value) => setDraft((current) => ({ ...current, vouchers: { ...current.vouchers, values: textToList(value) } }))} />
             </div>
           </AdminSection>
+          ) : null}
 
+          {activePage === "contact" ? (
           <AdminSection id="admin-contact" title="Kontakt ve Footer">
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Kontakt başlığı" value={draft.contact.title} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, title: value } }))} />
@@ -1141,7 +1312,9 @@ function AdminPanel({
               <Field label="Footer sağ" value={draft.footer.imprint} onChange={(value) => setDraft((current) => ({ ...current, footer: { ...current.footer, imprint: value } }))} />
             </div>
           </AdminSection>
+          ) : null}
 
+          {activePage === "gutschein-requests" ? (
           <AdminSection id="admin-gutschein-requests" title="Gutschein Kayıtları">
             <div className="grid gap-6 lg:grid-cols-2">
               <GutscheinRequestList
@@ -1169,6 +1342,7 @@ function AdminPanel({
               />
             </div>
           </AdminSection>
+          ) : null}
 
           <a
             href="#top"
@@ -1279,6 +1453,40 @@ function TextArea({
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        className="min-h-28 rounded-md border border-[#d1c5b7] bg-white p-3 leading-6"
+      />
+    </label>
+  )
+}
+
+function ListTextArea({
+  label,
+  items,
+  onChange,
+}: {
+  label: string
+  items: string[]
+  onChange: (items: string[]) => void
+}) {
+  const [text, setText] = useState(listToText(items))
+
+  useEffect(() => {
+    const nextText = listToText(items)
+
+    if (listToText(textToList(text)) !== nextText) {
+      setText(nextText)
+    }
+  }, [items, text])
+
+  return (
+    <label className="grid gap-2 text-sm font-medium text-[#43534b]">
+      {label}
+      <textarea
+        value={text}
+        onChange={(event) => {
+          setText(event.target.value)
+          onChange(textToList(event.target.value))
+        }}
         className="min-h-28 rounded-md border border-[#d1c5b7] bg-white p-3 leading-6"
       />
     </label>

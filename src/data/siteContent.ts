@@ -39,6 +39,7 @@ export type SiteContent = {
     eyebrow: string
     title: string
     body: string
+    imageUrl?: string | null
     stats: Array<{
       value: string
       text: string

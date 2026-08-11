@@ -40,6 +40,14 @@ export type MassageVoucherRequestDto = Entity & {
   createdAt: string
 }
 
+export type SiteContentModule =
+  | "hero"
+  | "services"
+  | "practice"
+  | "about"
+  | "appointment"
+  | "contact"
+
 type HeroDto = Entity & {
   eyebrow: string
   title: string
@@ -94,6 +102,7 @@ type AboutDto = Entity & {
   eyebrow: string
   title: string
   description: string
+  imageUrl?: string | null
 }
 
 type AboutStatDto = Entity & {
@@ -253,6 +262,28 @@ async function remove(controller: string, id: string, token: string) {
   )
 }
 
+function valuesMatch(left: unknown, right: unknown) {
+  if (typeof left === "number" || typeof right === "number") {
+    return Number(left) === Number(right)
+  }
+
+  return left === right
+}
+
+function bodyMatchesCurrent<T extends Entity>(
+  current: T | undefined,
+  body: Record<string, unknown>
+) {
+  if (!current) {
+    return false
+  }
+
+  return Object.entries(body).every(([key, value]) => {
+    const currentValue = current[key as keyof T]
+    return valuesMatch(currentValue, value)
+  })
+}
+
 async function upsertOne<T extends Entity>(
   controller: string,
   current: T | undefined,
@@ -260,6 +291,10 @@ async function upsertOne<T extends Entity>(
   token: string
 ) {
   if (current) {
+    if (bodyMatchesCurrent(current, body)) {
+      return current
+    }
+
     return update<T>(controller, { id: current.id, ...body }, token)
   }
 
@@ -286,7 +321,7 @@ async function syncCollection<T extends Entity, TBody extends Record<string, unk
 }
 
 function currencyFromText(value: string) {
-  return value.includes("$") ? "$" : value.includes("€") ? "€" : "€"
+  return value.includes("$") ? "$" : "€"
 }
 
 function numberFromText(value: string) {
@@ -362,6 +397,7 @@ function contentFromSnapshot(snapshot: ApiSnapshot): SiteContent {
       eyebrow: about.eyebrow,
       title: about.title,
       body: about.description,
+      imageUrl: about.imageUrl,
       stats: snapshot.aboutStats
         .filter((stat) => stat.aboutId === about.id)
         .map((stat) => ({ value: stat.statValue, text: stat.description })),
@@ -526,6 +562,7 @@ export async function saveSiteContentToApi(content: SiteContent, token: string) 
       eyebrow: content.about.eyebrow,
       title: content.about.title,
       description: content.about.body,
+      imageUrl: content.about.imageUrl,
     },
     token
   )
@@ -606,11 +643,192 @@ export async function saveSiteContentToApi(content: SiteContent, token: string) 
   })
 }
 
+export async function saveSiteContentModuleToApi(
+  content: SiteContent,
+  token: string,
+  module: SiteContentModule
+) {
+  const snapshot = await loadSnapshot()
+  const nextSnapshot = { ...snapshot }
+
+  if (module === "hero") {
+    const hero = await upsertOne<HeroDto>(
+      endpoints.heroes,
+      snapshot.heroes[0],
+      content.hero,
+      token
+    )
+
+    const benefits = await syncCollection<BenefitDto, { benefitName: string }>(
+      endpoints.benefits,
+      snapshot.benefits,
+      content.benefits.map((benefitName) => ({ benefitName })),
+      token
+    )
+
+    nextSnapshot.heroes = [hero]
+    nextSnapshot.benefits = benefits
+  }
+
+  if (module === "services") {
+    const services = await syncCollection<ServiceDto, Record<string, unknown>>(
+      endpoints.services,
+      snapshot.services,
+      content.services.map((service) => ({
+        title: service.title,
+        price: numberFromText(service.price),
+        currency: currencyFromText(service.price),
+        description: service.text,
+        icon: service.icon,
+      })),
+      token
+    )
+
+    const serviceTimeBodies = content.services.flatMap((service, serviceIndex) =>
+      service.times.map((time) => ({
+        serviceId: services[serviceIndex]?.id ?? snapshot.services[serviceIndex]?.id,
+        ...parseTimeLabel(time),
+      }))
+    )
+
+    const serviceTimes = await syncCollection<ServiceTimeDto, Record<string, unknown>>(
+      endpoints.serviceTimes,
+      snapshot.serviceTimes,
+      serviceTimeBodies.filter((time) => typeof time.serviceId === "string"),
+      token
+    )
+
+    nextSnapshot.services = services
+    nextSnapshot.serviceTimes = serviceTimes
+  }
+
+  if (module === "practice") {
+    const practice = await upsertOne<PracticeDto>(
+      endpoints.practices,
+      snapshot.practices[0],
+      {
+        eyebrow: content.practice.eyebrow,
+        title: content.practice.title,
+      },
+      token
+    )
+
+    const practiceCards = await syncCollection<PracticeCardDto, Record<string, unknown>>(
+      endpoints.practiceCards,
+      snapshot.practiceCards,
+      content.practice.cards.map((card) => ({
+        practiceId: practice.id,
+        title: card.title,
+        description: card.text,
+      })),
+      token
+    )
+
+    nextSnapshot.practices = [practice]
+    nextSnapshot.practiceCards = practiceCards
+  }
+
+  if (module === "about") {
+    const about = await upsertOne<AboutDto>(
+      endpoints.abouts,
+      snapshot.abouts[0],
+      {
+        eyebrow: content.about.eyebrow,
+        title: content.about.title,
+        description: content.about.body,
+        imageUrl: content.about.imageUrl,
+      },
+      token
+    )
+
+    const aboutStats = await syncCollection<AboutStatDto, Record<string, unknown>>(
+      endpoints.aboutStats,
+      snapshot.aboutStats,
+      content.about.stats.map((stat) => ({
+        aboutId: about.id,
+        statValue: stat.value,
+        description: stat.text,
+      })),
+      token
+    )
+
+    nextSnapshot.abouts = [about]
+    nextSnapshot.aboutStats = aboutStats
+  }
+
+  if (module === "appointment") {
+    const appointment = await upsertOne<AppointmentDto>(
+      endpoints.appointments,
+      snapshot.appointments[0],
+      {
+        eyebrow: content.appointment.eyebrow,
+        title: content.appointment.title,
+        description: content.appointment.body,
+        buttonText: content.appointment.submitLabel,
+      },
+      token
+    )
+
+    const voucher = await upsertOne<VoucherDto>(
+      endpoints.vouchers,
+      snapshot.vouchers[0],
+      {
+        title: content.vouchers.title,
+        description: content.vouchers.body,
+      },
+      token
+    )
+
+    const voucherPrices = await syncCollection<VoucherPriceDto, Record<string, unknown>>(
+      endpoints.voucherPrices,
+      snapshot.voucherPrices,
+      content.vouchers.values.map((value) => ({
+        voucherId: voucher.id,
+        price: numberFromText(value),
+        currency: currencyFromText(value),
+      })),
+      token
+    )
+
+    nextSnapshot.appointments = [appointment]
+    nextSnapshot.vouchers = [voucher]
+    nextSnapshot.voucherPrices = voucherPrices
+  }
+
+  if (module === "contact") {
+    const contact = await upsertOne<ContactDto>(
+      endpoints.contacts,
+      snapshot.contacts[0],
+      content.contact,
+      token
+    )
+
+    const footer = await upsertOne<FooterDto>(
+      endpoints.footers,
+      snapshot.footers[0],
+      content.footer,
+      token
+    )
+
+    nextSnapshot.contacts = [contact]
+    nextSnapshot.footers = [footer]
+  }
+
+  return contentFromSnapshot(nextSnapshot)
+}
+
 export async function uploadHeroImage(file: File, token: string) {
   const formData = new FormData()
   formData.append("file", file)
 
   return upload<string>(`/api/${endpoints.heroes}/upload-image`, formData, token)
+}
+
+export async function uploadAboutImage(file: File, token: string) {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  return upload<string>(`/api/${endpoints.abouts}/upload-image`, formData, token)
 }
 
 export async function createValueVoucherRequest(body: {
