@@ -31,6 +31,15 @@ import {
   type ServiceIcon,
   type SiteContent,
 } from "@/data/siteContent"
+import {
+  clearStoredAdminSession,
+  getStoredAdminSession,
+  loadSiteContentFromApi,
+  loginAdmin,
+  logoutAdmin,
+  saveSiteContentToApi,
+  type AdminSession,
+} from "@/lib/nakiApi"
 
 const contentStorageKey = "naki-site-content"
 
@@ -78,6 +87,22 @@ function useSiteContent() {
       return defaultSiteContent
     }
   })
+
+  useEffect(() => {
+    let isMounted = true
+
+    loadSiteContentFromApi()
+      .then((apiContent) => {
+        if (isMounted) {
+          setContent(apiContent)
+        }
+      })
+      .catch(() => undefined)
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -491,15 +516,59 @@ function AdminPanel({
   setContent: Dispatch<SetStateAction<SiteContent>>
 }) {
   const [draft, setDraft] = useState(savedContent)
-  const [status, setStatus] = useState("Değişiklikler taslakta bekler; Kaydedildi butonuna basınca uygulanır.")
+  const [status, setStatus] = useState("Degisiklikler taslakta bekler; Kaydet butonuna basinca API'ye yazilir.")
+  const [session, setSession] = useState<AdminSession | null>(() => getStoredAdminSession())
+  const [credentials, setCredentials] = useState({ email: "", password: "" })
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     setDraft(savedContent)
   }, [savedContent])
 
-  const saveDraft = () => {
-    setContent(draft)
-    setStatus("Taslak uygulandı ve taşınabilir veritabanına kaydedildi.")
+  const saveDraft = async () => {
+    if (!session) {
+      setStatus("Kaydetmek icin once admin girisi yapmalisin.")
+      return
+    }
+
+    setIsSaving(true)
+    setStatus("API'ye kaydediliyor...")
+
+    try {
+      const syncedContent = await saveSiteContentToApi(draft, session.token)
+      setDraft(syncedContent)
+      setContent(syncedContent)
+      setStatus("Taslak API'ye kaydedildi ve site icerigi yenilendi.")
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "API kaydi sirasinda hata olustu.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const login = async () => {
+    setIsSaving(true)
+    setStatus("Admin girisi yapiliyor...")
+
+    try {
+      const loginSession = await loginAdmin(credentials.email, credentials.password)
+      setSession(loginSession)
+      setStatus(`${loginSession.fullName} olarak giris yapildi.`)
+    } catch (error) {
+      clearStoredAdminSession()
+      setStatus(error instanceof Error ? error.message : "Giris basarisiz.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const logout = async () => {
+    if (session) {
+      await logoutAdmin(session)
+    }
+
+    setSession(null)
+    setStatus("Oturum kapatildi.")
   }
 
   const downloadDatabase = () => {
@@ -569,11 +638,21 @@ function AdminPanel({
             <button
               type="button"
               onClick={saveDraft}
+              disabled={isSaving || !session}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#28594a] px-4 text-sm font-medium text-white"
             >
               <Save className="size-4" />
-              Kaydedildi
+              {isSaving ? "Kaydediliyor" : "Kaydet"}
             </button>
+            {session ? (
+              <button
+                type="button"
+                onClick={logout}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-[#d1c5b7] bg-white px-4 text-sm font-medium"
+              >
+                Oturumu kapat
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={downloadDatabase}
@@ -618,9 +697,44 @@ function AdminPanel({
           <p className="mt-4 rounded-md bg-[#eef3ec] p-3 text-xs leading-5 text-[#52625a]">
             {status}
           </p>
+          {session ? (
+            <p className="mt-3 rounded-md border border-[#ded4c4] bg-[#fbfaf7] p-3 text-xs leading-5 text-[#52625a]">
+              {session.fullName}
+            </p>
+          ) : null}
         </aside>
 
         <div className="grid gap-6">
+          {!session ? (
+            <AdminSection id="admin-login" title="Admin Girisi">
+              <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                <Field
+                  label="E-posta"
+                  value={credentials.email}
+                  onChange={(value) => setCredentials((current) => ({ ...current, email: value }))}
+                />
+                <label className="grid gap-2 text-sm font-medium text-[#43534b]">
+                  Sifre
+                  <input
+                    type="password"
+                    value={credentials.password}
+                    onChange={(event) =>
+                      setCredentials((current) => ({ ...current, password: event.target.value }))
+                    }
+                    className="h-11 rounded-md border border-[#d1c5b7] bg-white px-3"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={login}
+                  disabled={isSaving}
+                  className="inline-flex h-11 items-center justify-center rounded-md bg-[#28594a] px-4 text-sm font-medium text-white"
+                >
+                  Giris yap
+                </button>
+              </div>
+            </AdminSection>
+          ) : null}
           <AdminSection id="admin-hero" title="Hero ve Menü">
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Hero üst etiket" value={draft.hero.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, eyebrow: value } }))} />
