@@ -25,6 +25,21 @@ type Entity = {
   id: string
 }
 
+export type ValueVoucherRequestDto = Entity & {
+  value: string
+  customerName: string
+  phone: string
+  createdAt: string
+}
+
+export type MassageVoucherRequestDto = Entity & {
+  serviceTitle: string
+  duration: string
+  customerName: string
+  phone: string
+  createdAt: string
+}
+
 type HeroDto = Entity & {
   eyebrow: string
   title: string
@@ -150,6 +165,7 @@ const endpoints = {
   appointments: "Apointments",
   vouchers: "Vouchers",
   voucherPrices: "VoucherPrices",
+  gutscheinRequests: "GutscheinRequests",
   contacts: "Contacts",
   footers: "Footers",
   users: "User",
@@ -595,6 +611,46 @@ export async function uploadHeroImage(file: File, token: string) {
   formData.append("file", file)
 
   return upload<string>(`/api/${endpoints.heroes}/upload-image`, formData, token)
+}
+
+export async function createValueVoucherRequest(body: {
+  value: string
+  customerName: string
+  phone: string
+}) {
+  return request<ValueVoucherRequestDto>(`/api/${endpoints.gutscheinRequests}/value`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
+
+export async function createMassageVoucherRequest(body: {
+  serviceTitle: string
+  duration: string
+  customerName: string
+  phone: string
+}) {
+  return request<MassageVoucherRequestDto>(`/api/${endpoints.gutscheinRequests}/massage`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
+
+export async function loadGutscheinRequests(token: string) {
+  const [valueRequests, massageRequests] = await Promise.all([
+    request<ValueVoucherRequestDto[]>(
+      `/api/${endpoints.gutscheinRequests}/value/list`,
+      {},
+      token
+    ),
+    request<MassageVoucherRequestDto[]>(
+      `/api/${endpoints.gutscheinRequests}/massage/list`,
+      {},
+      token
+    ),
+  ])
+
+  return { valueRequests, massageRequests }
 }
 
 export async function loginAdmin(email: string, password: string) {

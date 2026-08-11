@@ -16,6 +16,7 @@ import {
   Sparkles,
   Timer,
   Trash2,
+  X,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -23,12 +24,17 @@ import nakiLogo from "@/assets/images/logo_naki.svg"
 import nakiPortrait from "@/assets/images/naki.jpg"
 import type { ServiceIcon, SiteContent } from "@/data/siteContent"
 import {
+  createMassageVoucherRequest,
+  createValueVoucherRequest,
+  loadGutscheinRequests,
   loadSiteContentFromApi,
   loginAdmin,
   logoutAdmin,
   saveSiteContentToApi,
   uploadHeroImage,
   type AdminSession,
+  type MassageVoucherRequestDto,
+  type ValueVoucherRequestDto,
 } from "@/lib/nakiApi"
 
 const serviceIcons = {
@@ -58,6 +64,32 @@ function textToList(value: string) {
 
 function phoneHref(phone: string) {
   return `tel:${phone.replace(/[^\d+]/g, "")}`
+}
+
+type GutscheinKind = "value" | "massage"
+
+type GutscheinFormState = {
+  kind: GutscheinKind
+  serviceTitle: string
+  duration: string
+  value: string
+  name: string
+  phone: string
+}
+
+function firstService(content: SiteContent) {
+  return content.services[0]
+}
+
+function initialGutscheinForm(content: SiteContent, service = firstService(content)): GutscheinFormState {
+  return {
+    kind: "massage",
+    serviceTitle: service?.title ?? "",
+    duration: service?.times[0] ?? "",
+    value: content.vouchers.values[0] ?? "",
+    name: "",
+    phone: "",
+  }
 }
 
 function useSiteContent() {
@@ -148,6 +180,58 @@ function PublicSite({ content }: { content: SiteContent }) {
     [content.services]
   )
   const heroImageSrc = content.hero.imageUrl?.trim() || nakiPortrait
+  const [isGutscheinOpen, setIsGutscheinOpen] = useState(false)
+  const [gutscheinForm, setGutscheinForm] = useState(() => initialGutscheinForm(content))
+  const [gutscheinStatus, setGutscheinStatus] = useState("")
+  const [isSendingGutschein, setIsSendingGutschein] = useState(false)
+
+  const openMassageGutschein = (service = firstService(content)) => {
+    setGutscheinForm((current) => ({
+      ...current,
+      kind: "massage",
+      serviceTitle: service?.title ?? current.serviceTitle,
+      duration: service?.times[0] ?? current.duration,
+    }))
+    setIsGutscheinOpen(true)
+  }
+
+  const openValueGutschein = (value = content.vouchers.values[0] ?? "") => {
+    setGutscheinForm((current) => ({
+      ...current,
+      kind: "value",
+      value,
+    }))
+    setIsGutscheinOpen(true)
+  }
+
+  const sendGutscheinRequest = async () => {
+    setIsSendingGutschein(true)
+    setGutscheinStatus("Anfrage wird gespeichert...")
+
+    try {
+      if (gutscheinForm.kind === "value") {
+        await createValueVoucherRequest({
+          value: gutscheinForm.value,
+          customerName: gutscheinForm.name,
+          phone: gutscheinForm.phone,
+        })
+      } else {
+        await createMassageVoucherRequest({
+          serviceTitle: gutscheinForm.serviceTitle,
+          duration: gutscheinForm.duration,
+          customerName: gutscheinForm.name,
+          phone: gutscheinForm.phone,
+        })
+      }
+
+      setGutscheinStatus("Danke, deine Anfrage wurde gespeichert.")
+      setGutscheinForm((current) => ({ ...current, name: "", phone: "" }))
+    } catch (error) {
+      setGutscheinStatus(error instanceof Error ? error.message : "Anfrage konnte nicht gespeichert werden.")
+    } finally {
+      setIsSendingGutschein(false)
+    }
+  }
 
   return (
     <main className="min-h-svh bg-[#f8f5ef] text-[#1c2621]">
@@ -305,12 +389,13 @@ function PublicSite({ content }: { content: SiteContent }) {
                     >
                       Buchen
                     </a>
-                    <a
-                      href="#gutschein"
+                    <button
+                      type="button"
+                      onClick={() => openMassageGutschein(service)}
                       className="inline-flex h-8 items-center justify-center rounded-md border border-[#d9d1c5] bg-white px-3 text-sm font-medium text-[#28594a] transition hover:bg-[#eef3ec]"
                     >
                       Gutschein
-                    </a>
+                    </button>
                   </div>
                 </article>
               )
@@ -445,9 +530,14 @@ function PublicSite({ content }: { content: SiteContent }) {
             <p className="mt-4 leading-8 text-[#5b6b63]">{content.vouchers.body}</p>
             <div className="mt-6 flex flex-wrap gap-2">
               {content.vouchers.values.map((value) => (
-                <span key={value} className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-[#28594a]">
+                <button
+                  type="button"
+                  onClick={() => openValueGutschein(value)}
+                  key={value}
+                  className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-[#28594a] transition hover:bg-[#eef3ec]"
+                >
                   {value}
-                </span>
+                </button>
               ))}
             </div>
           </div>
@@ -479,6 +569,18 @@ function PublicSite({ content }: { content: SiteContent }) {
         </div>
       </section>
 
+      {isGutscheinOpen ? (
+        <GutscheinDrawer
+          content={content}
+          form={gutscheinForm}
+          onChange={setGutscheinForm}
+          onClose={() => setIsGutscheinOpen(false)}
+          onSubmit={sendGutscheinRequest}
+          status={gutscheinStatus}
+          isSubmitting={isSendingGutschein}
+        />
+      ) : null}
+
       <footer className="border-t border-[#e7dfd4] bg-[#f8f5ef] px-5 py-8 text-sm text-[#66746d] sm:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p>{content.footer.copyright}</p>
@@ -494,6 +596,204 @@ function PublicSite({ content }: { content: SiteContent }) {
   )
 }
 
+function GutscheinDrawer({
+  content,
+  form,
+  onChange,
+  onClose,
+  onSubmit,
+  status,
+  isSubmitting,
+}: {
+  content: SiteContent
+  form: GutscheinFormState
+  onChange: (value: GutscheinFormState) => void
+  onClose: () => void
+  onSubmit: () => void
+  status: string
+  isSubmitting: boolean
+}) {
+  const selectedService = content.services.find((service) => service.title === form.serviceTitle) ?? firstService(content)
+  const serviceTimes = selectedService?.times ?? []
+
+  const updateForm = (patch: Partial<GutscheinFormState>) => {
+    onChange({ ...form, ...patch })
+  }
+
+  const chooseKind = (kind: GutscheinKind) => {
+    if (kind === "massage") {
+      updateForm({
+        kind,
+        serviceTitle: form.serviceTitle || selectedService?.title || "",
+        duration: form.duration || serviceTimes[0] || "",
+      })
+      return
+    }
+
+    updateForm({ kind, value: form.value || content.vouchers.values[0] || "" })
+  }
+
+  const handleServiceChange = (serviceTitle: string) => {
+    const nextService = content.services.find((service) => service.title === serviceTitle)
+    updateForm({
+      serviceTitle,
+      duration: nextService?.times[0] ?? "",
+    })
+  }
+
+  const canSubmit =
+    form.name.trim().length > 1 &&
+    form.phone.trim().length > 3 &&
+    (form.kind === "value"
+      ? form.value.trim().length > 0
+      : form.serviceTitle.trim().length > 0 && form.duration.trim().length > 0)
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-[#1b130e]/68">
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+        aria-label="Gutschein Fenster schließen"
+      />
+      <section className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-white text-[#1c2621] shadow-2xl sm:max-w-lg">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-5 top-5 z-10 grid size-9 place-items-center rounded-md text-[#8a8a8a] transition hover:bg-[#f1f1f1] hover:text-[#1c2621]"
+          aria-label="Gutschein Fenster schließen"
+        >
+          <X className="size-5" />
+        </button>
+
+        <div className="overflow-y-auto px-6 pb-6 pt-16 sm:px-8">
+        <h2 className="text-2xl font-medium text-[#202422] sm:text-3xl">Gutschein Kaufen</h2>
+        <p className="mt-5 max-w-xl text-base leading-6 text-[#7d817f] sm:text-lg">
+          Gutscheine können täglich von 18:00-19:00 in Grosspiesenham 49, 4925 Pramet abgeholt werden
+        </p>
+
+        <div className="mt-7 grid gap-3">
+          <button
+            type="button"
+            onClick={() => chooseKind("value")}
+            className={`flex h-11 items-center gap-3 rounded-md px-3 text-left text-lg transition ${
+              form.kind === "value" ? "bg-[#d7e3db] text-[#52625a]" : "bg-[#e7e7e7] text-[#52625a]"
+            }`}
+          >
+            <span className="grid size-7 shrink-0 place-items-center rounded-[3px] bg-white text-[#688466]">
+              {form.kind === "value" ? <Check className="size-5 stroke-[3]" /> : null}
+            </span>
+            Wertgutschein
+          </button>
+          <button
+            type="button"
+            onClick={() => chooseKind("massage")}
+            className={`flex h-11 items-center gap-3 rounded-md px-3 text-left text-lg transition ${
+              form.kind === "massage" ? "bg-[#d7e3db] text-[#52625a]" : "bg-[#e7e7e7] text-[#52625a]"
+            }`}
+          >
+            <span className="grid size-7 shrink-0 place-items-center rounded-[3px] bg-white text-[#688466]">
+              {form.kind === "massage" ? <Check className="size-5 stroke-[3]" /> : null}
+            </span>
+            Massagegutschein
+          </button>
+        </div>
+
+        <form
+          className="mt-7 grid gap-5"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (canSubmit) {
+              onSubmit()
+            }
+          }}
+        >
+          {form.kind === "value" ? (
+            <label className="grid gap-2 text-xl font-medium text-[#666a68]">
+              Wert:
+              <select
+                value={form.value}
+                onChange={(event) => updateForm({ value: event.target.value })}
+                className="h-12 rounded-md border border-[#d1d1d1] bg-white px-3 text-xl font-normal text-black"
+              >
+                {content.vouchers.values.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <>
+              <label className="grid gap-2 text-xl font-medium text-[#666a68]">
+                Massageart:
+                <select
+                  value={form.serviceTitle}
+                  onChange={(event) => handleServiceChange(event.target.value)}
+                  className="h-12 rounded-md border border-[#d1d1d1] bg-white px-3 text-xl font-normal text-black"
+                >
+                  {content.services.map((service) => (
+                    <option key={service.title} value={service.title}>
+                      {service.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-2 text-xl font-medium text-[#666a68]">
+                Dauer:
+                <select
+                  value={form.duration}
+                  onChange={(event) => updateForm({ duration: event.target.value })}
+                  className="h-12 rounded-md border border-[#d1d1d1] bg-white px-3 text-xl font-normal text-black"
+                >
+                  {serviceTimes.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
+
+          <div className="grid gap-5">
+            <label className="grid gap-2 text-xl font-medium text-[#666a68]">
+              Dein Name
+              <input
+                value={form.name}
+                onChange={(event) => updateForm({ name: event.target.value })}
+                className="h-12 rounded-md border border-[#d1d1d1] bg-white px-3 text-xl font-normal text-black"
+              />
+            </label>
+            <label className="grid gap-2 text-xl font-medium text-[#666a68]">
+              Tel. Nr.
+              <input
+                value={form.phone}
+                onChange={(event) => updateForm({ phone: event.target.value })}
+                className="h-12 rounded-md border border-[#d1d1d1] bg-white px-3 text-xl font-normal text-black"
+              />
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={!canSubmit || isSubmitting}
+            className="h-12 rounded-md bg-[#63885f] text-xl font-semibold text-white transition hover:bg-[#557852] disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {isSubmitting ? "Wird gespeichert" : "Absenden"}
+          </button>
+          {status ? (
+            <p className="rounded-md bg-[#eef3ec] p-3 text-sm leading-5 text-[#52625a]">
+              {status}
+            </p>
+          ) : null}
+        </form>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function AdminPanel({
   content: savedContent,
   setContent,
@@ -506,11 +806,30 @@ function AdminPanel({
   const [session, setSession] = useState<AdminSession | null>(null)
   const [credentials, setCredentials] = useState({ email: "", password: "" })
   const [isSaving, setIsSaving] = useState(false)
+  const [valueVoucherRequests, setValueVoucherRequests] = useState<ValueVoucherRequestDto[]>([])
+  const [massageVoucherRequests, setMassageVoucherRequests] = useState<MassageVoucherRequestDto[]>([])
   const draftHeroImageSrc = draft.hero.imageUrl?.trim() || nakiPortrait
 
   useEffect(() => {
     setDraft(savedContent)
   }, [savedContent])
+
+  useEffect(() => {
+    if (!session) {
+      setValueVoucherRequests([])
+      setMassageVoucherRequests([])
+      return
+    }
+
+    loadGutscheinRequests(session.token)
+      .then(({ valueRequests, massageRequests }) => {
+        setValueVoucherRequests(valueRequests)
+        setMassageVoucherRequests(massageRequests)
+      })
+      .catch((error) => {
+        setStatus(error instanceof Error ? error.message : "Gutschein kayıtları yüklenemedi.")
+      })
+  }, [session])
 
   const saveDraft = async () => {
     if (!session) {
@@ -675,6 +994,7 @@ function AdminPanel({
               ["#admin-practice", "Praxis"],
               ["#admin-about", "Über Naki"],
               ["#admin-appointment", "Termin"],
+              ["#admin-gutschein-requests", "Gutschein Kayıtları"],
               ["#admin-contact", "Kontakt"],
             ].map(([href, label]) => (
               <a className="rounded-md px-3 py-2 hover:bg-[#eef3ec]" href={href} key={href}>
@@ -822,6 +1142,34 @@ function AdminPanel({
             </div>
           </AdminSection>
 
+          <AdminSection id="admin-gutschein-requests" title="Gutschein Kayıtları">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <GutscheinRequestList
+                title="Wertgutschein talepleri"
+                emptyText="Henüz Wertgutschein talebi yok."
+                items={valueVoucherRequests.map((request) => ({
+                  id: request.id,
+                  title: request.value,
+                  lines: [request.customerName, request.phone, formatDateTime(request.createdAt)],
+                }))}
+              />
+              <GutscheinRequestList
+                title="Massagegutschein talepleri"
+                emptyText="Henüz Massagegutschein talebi yok."
+                items={massageVoucherRequests.map((request) => ({
+                  id: request.id,
+                  title: request.serviceTitle,
+                  lines: [
+                    request.duration,
+                    request.customerName,
+                    request.phone,
+                    formatDateTime(request.createdAt),
+                  ],
+                }))}
+              />
+            </div>
+          </AdminSection>
+
           <a
             href="#top"
             className="inline-flex h-11 w-max items-center justify-center gap-2 rounded-md bg-[#1e2b25] px-4 text-sm font-medium text-white hover:text-white"
@@ -849,6 +1197,49 @@ function AdminSection({
       <h2 className="mb-5 text-2xl font-semibold text-[#18221e]">{title}</h2>
       {children}
     </section>
+  )
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("de-AT", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value))
+}
+
+function GutscheinRequestList({
+  title,
+  emptyText,
+  items,
+}: {
+  title: string
+  emptyText: string
+  items: Array<{
+    id: string
+    title: string
+    lines: string[]
+  }>
+}) {
+  return (
+    <div className="rounded-lg border border-[#ded4c4] bg-[#fbfaf7] p-4">
+      <h3 className="text-lg font-semibold text-[#18221e]">{title}</h3>
+      <div className="mt-4 grid gap-3">
+        {items.length === 0 ? (
+          <p className="rounded-md bg-white p-3 text-sm text-[#66746d]">{emptyText}</p>
+        ) : (
+          items.map((item) => (
+            <article className="rounded-md border border-[#ded4c4] bg-white p-4" key={item.id}>
+              <p className="font-semibold text-[#28594a]">{item.title}</p>
+              <div className="mt-2 grid gap-1 text-sm leading-5 text-[#52625a]">
+                {item.lines.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+    </div>
   )
 }
 
