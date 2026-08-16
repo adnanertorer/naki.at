@@ -8,8 +8,8 @@ services:
     build:
       context: .
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://nakiapi.sofiraflow.com/api}
-        VITE_MAIN_URL: ${VITE_MAIN_URL:-https://nakiat.sofiraflow.com/}
+        VITE_API_URL: ${VITE_API_URL:-https://nakiapi.sofiraflow.com}
+        VITE_MAIN_URL: ${VITE_MAIN_URL:-https://nakiat.sofiraflow.com}
     image: sofiraflow-web:latest
     ports:
       - "${SOFIRAFLOW_WEB_PORT:-8081}:80"
