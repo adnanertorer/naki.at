@@ -964,7 +964,7 @@ function AdminPanel({
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Kontakt başlığı" value={draft.contact.title} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, title: value } }))} />
               <Field label="Ad" value={draft.contact.name} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, name: value } }))} />
-              <Field label="Adres" value={draft.contact.address} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, address: value } }))} />
+              <PlainTextArea label="Adres" value={draft.contact.address} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, address: value } }))} />
               <Field label="Telefon" value={draft.contact.phone} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, phone: value } }))} />
               <Field label="E-posta" value={draft.contact.email} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, email: value } }))} />
               <Field label="Harita URL" value={draft.contact.mapUrl} onChange={(value) => setDraft((current) => ({ ...current, contact: { ...current.contact, mapUrl: value } }))} />
@@ -1094,6 +1094,27 @@ function Field({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="h-11 rounded-md border border-[#d1c5b7] bg-white px-3"
+      />
+    </label>
+  )
+}
+
+function PlainTextArea({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-[#43534b]">
+      {label}
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-28 rounded-md border border-[#d1c5b7] bg-white p-3 leading-6"
       />
     </label>
   )

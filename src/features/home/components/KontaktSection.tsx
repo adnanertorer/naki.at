@@ -11,6 +11,10 @@ type KontaktSectionProps = {
 
 export function KontaktSection({ content, onValueVoucher }: KontaktSectionProps) {
   const mapUrl = content.contact.mapUrl.trim()
+  const addressLines = content.contact.address
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
 
   return (
     <section id="gutschein" className="bg-white py-20 sm:py-28">
@@ -41,7 +45,11 @@ export function KontaktSection({ content, onValueVoucher }: KontaktSectionProps)
           </h2>
           <div className="mt-5 space-y-3 text-lg text-[#43534b]">
             <p className="font-semibold text-[#18221e]">{content.contact.name}</p>
-            <p>{content.contact.address}</p>
+            <div className="space-y-1">
+              {addressLines.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
             <p>
               <a href={phoneHref(content.contact.phone)}>{content.contact.phone}</a>
             </p>
