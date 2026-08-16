@@ -118,7 +118,7 @@ function initialGutscheinForm(content: SiteContent, service = firstService(conte
 
 function useSiteContent() {
   const [content, setContent] = useState<SiteContent | null>(null)
-  const [status, setStatus] = useState("API icerigi yukleniyor...")
+  const [status, setStatus] = useState("Loading...")
 
   useEffect(() => {
     let isMounted = true
@@ -132,7 +132,7 @@ function useSiteContent() {
       })
       .catch((error) => {
         if (isMounted) {
-          setStatus(error instanceof Error ? error.message : "API icerigi yuklenemedi.")
+          setStatus(error instanceof Error ? error.message : "Failed to load API content.")
         }
       })
 

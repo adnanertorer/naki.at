@@ -359,7 +359,7 @@ function contentFromSnapshot(snapshot: ApiSnapshot): SiteContent {
   const footer = snapshot.footers[0]
 
   if (!hero || !navigation || !practice || !about || !appointment || !voucher || !contact || !footer) {
-    throw new Error("API icerigi eksik. Lutfen seed isleminin calistigindan emin ol.")
+    throw new Error("API content is incomplete. Please ensure the seed process has run.")
   }
 
   return {
