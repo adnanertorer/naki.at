@@ -316,3 +316,45 @@
     transform: translate(-50%, -50%) scale(1);
   }
 }
+
+.rich-content > * + *,
+.rich-editor > * + * {
+  margin-top: 0.65em;
+}
+
+.rich-content p,
+.rich-editor p {
+  margin: 0;
+}
+
+.rich-content ul,
+.rich-content ol,
+.rich-editor ul,
+.rich-editor ol {
+  margin: 0.65em 0 0;
+  padding-left: 1.25rem;
+}
+
+.rich-content ul,
+.rich-editor ul {
+  list-style: disc;
+}
+
+.rich-content ol,
+.rich-editor ol {
+  list-style: decimal;
+}
+
+.rich-content a,
+.rich-editor a {
+  color: #28594a;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.rich-editor:empty::before {
+  color: #9a8f82;
+  content: "Metin yaz...";
+  pointer-events: none;
+}
