@@ -1,0 +1,18 @@
+﻿networks:
+  proxy-net:
+    external: true
+    name: proxy-net
+
+services:
+  sofiraflow-web:
+    build:
+      context: .
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.naki.at/api}
+        VITE_MAIN_URL: ${VITE_MAIN_URL:-https://naki.at/}
+    image: sofiraflow-web:latest
+    ports:
+      - "${SOFIRAFLOW_WEB_PORT:-8080}:80"
+    restart: unless-stopped
+    networks:
+      - proxy-net
