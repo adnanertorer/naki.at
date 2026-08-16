@@ -1,29 +1,35 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import {
-  ArrowRight,
+  Bold,
   Check,
   Eye,
-  Gift,
-  HeartPulse,
   Home,
-  Leaf,
-  MapPin,
-  Menu,
-  Phone,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
   Plus,
+  RemoveFormatting,
   Save,
-  Sparkles,
-  Timer,
   Trash2,
   X,
 } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import nakiLogo from "@/assets/images/logo_naki.svg"
 import nakiPortrait from "@/assets/images/naki.jpg"
 import { adminPageFromHash, adminPages, type AdminPageId } from "@/admin/adminNavigation"
 import type { ServiceIcon, SiteContent } from "@/data/siteContent"
+import { HeroSection } from "@/features/home/components/HeroSection"
+import { KontaktSection } from "@/features/home/components/KontaktSection"
+import { LeistungenSection } from "@/features/home/components/LeistungenSection"
+import { PraxisSection } from "@/features/home/components/PraxisSection"
+import { SiteFooter } from "@/features/home/components/SiteFooter"
+import { SiteHeader } from "@/features/home/components/SiteHeader"
+import { TerminSection } from "@/features/home/components/TerminSection"
+import { UeberNakiSection } from "@/features/home/components/UeberNakiSection"
+import { sanitizeRichText } from "@/features/home/richText"
+import { iconLabels } from "@/features/home/serviceIcons"
 import {
   createMassageVoucherRequest,
   createValueVoucherRequest,
@@ -39,20 +45,6 @@ import {
   type SiteContentModule,
   type ValueVoucherRequestDto,
 } from "@/lib/nakiApi"
-
-const serviceIcons = {
-  heart: HeartPulse,
-  timer: Timer,
-  leaf: Leaf,
-  sparkles: Sparkles,
-}
-
-const iconLabels: Record<ServiceIcon, string> = {
-  heart: "Herz",
-  timer: "Zeit",
-  leaf: "Blatt",
-  sparkles: "Glanz",
-}
 
 const adminSessionStorageKey = "naki.admin.session"
 
@@ -96,10 +88,6 @@ function textToList(value: string) {
     .split("\n")
     .map((item) => item.trim())
     .filter(Boolean)
-}
-
-function phoneHref(phone: string) {
-  return `tel:${phone.replace(/[^\d+]/g, "")}`
 }
 
 type GutscheinKind = "value" | "massage"
@@ -176,16 +164,6 @@ function useAdminRoute() {
   }, [])
 
   return isAdmin
-}
-
-function FlowerLayer() {
-  return (
-    <div className="flower-field" aria-hidden="true">
-      {Array.from({ length: 10 }).map((_, index) => (
-        <span className="flower-bloom" key={index} />
-      ))}
-    </div>
-  )
 }
 
 export function App() {
@@ -318,347 +296,20 @@ function PublicSite({ content }: { content: SiteContent }) {
 
   return (
     <main className="min-h-svh bg-[#f8f5ef] text-[#1c2621]">
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/35 bg-[#f8f5ef]/88 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
-          <a href="#top" className="flex items-center font-semibold">
-            <span className="mt-3 flex h-14 w-44 items-center sm:w-56 lg:w-64">
-              <img
-                src={nakiLogo}
-                alt="Naki Öztürk Massagezentrum Pramet"
-                className="max-h-24 w-full object-contain object-left"
-              />
-            </span>
-            <span className="sr-only">Naki Öztürk Massagezentrum Pramet</span>
-          </a>
-          <nav className="hidden items-center gap-8 text-sm font-medium text-[#52625a] md:flex">
-            <a href="#leistungen">{content.nav.services}</a>
-            <a href="#naki">{content.nav.about}</a>
-            <a href="#praxis">{content.nav.practice}</a>
-            <a href="#termin">{content.nav.appointment}</a>
-            <a href="#kontakt">{content.nav.contact}</a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <a
-              href={phoneHref(content.contact.phone)}
-              className="hidden h-9 items-center justify-center gap-2 rounded-md bg-[#28594a] px-3 text-sm font-medium text-white transition hover:bg-[#214a3e] hover:text-white md:inline-flex"
-            >
-              <Phone className="size-4" />
-              {content.nav.call}
-            </a>
-            <button
-              aria-label="Navigation öffnen"
-              className="grid size-10 place-items-center rounded-md border border-[#d9d1c5] text-[#28594a] md:hidden"
-            >
-              <Menu className="size-5" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <section id="top" className="relative overflow-hidden pt-16">
-        <div className="mx-auto grid min-h-[calc(100svh-4rem)] max-w-7xl items-center gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:py-16">
-          <div className="relative z-10 max-w-2xl">
-            <p className="mb-5 inline-flex rounded-md border border-[#d7c9b9] bg-white/62 px-3 py-1 text-sm font-medium text-[#7a4b35]">
-              {content.hero.eyebrow}
-            </p>
-            <h1 className="max-w-3xl text-5xl font-semibold leading-[1.02] tracking-normal text-[#18221e] sm:text-6xl lg:text-7xl">
-              {content.hero.title}
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-[#52625a]">
-              {content.hero.body}
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a
-                href="#termin"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#28594a] px-5 text-sm font-medium text-white transition hover:bg-[#214a3e] hover:text-white"
-              >
-                {content.hero.primaryCta}
-                <ArrowRight className="size-4" />
-              </a>
-              <a
-                href="#leistungen"
-                className="inline-flex h-11 items-center justify-center rounded-md border border-[#cfc4b6] bg-white/70 px-5 text-sm font-medium text-[#28594a] transition hover:bg-white hover:text-[#214a3e]"
-              >
-                {content.hero.secondaryCta}
-              </a>
-            </div>
-            <div className="mt-9 grid max-w-xl gap-3 sm:grid-cols-2">
-              {content.benefits.map((benefit) => (
-                <div key={benefit} className="flex items-center gap-3 text-sm text-[#43534b]">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-md bg-[#dfe8df] text-[#28594a]">
-                    <Check className="size-4" />
-                  </span>
-                  {benefit}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative min-h-[420px] overflow-hidden rounded-lg border border-white/55 shadow-[0_28px_80px_rgba(31,48,39,0.18)] lg:min-h-[680px]">
-            <img
-              src={heroImageSrc}
-              alt="Naki Öztürk"
-              className="absolute inset-0 size-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#10251d]/42 via-transparent to-transparent" />
-            <FlowerLayer />
-            <div className="absolute bottom-5 left-5 right-5 rounded-md bg-white/86 p-5 shadow-xl backdrop-blur-md sm:left-auto sm:max-w-sm">
-              <p className="text-sm font-medium text-[#7a4b35]">{content.hero.contactLabel}</p>
-              <p className="mt-2 text-2xl font-semibold text-[#18221e]">
-                {content.contact.phone}
-              </p>
-              <p className="mt-2 text-sm leading-6 text-[#52625a]">
-                {content.hero.contactBody}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="leistungen" className="bg-white py-20 sm:py-28">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#9b6040]">
-                {content.nav.services}
-              </p>
-              <h2 className="mt-3 max-w-2xl text-4xl font-semibold leading-tight text-[#18221e] sm:text-5xl">
-                Massagen mit klaren Preisen und ruhigem Ablauf
-              </h2>
-            </div>
-            <p className="max-w-md text-base leading-7 text-[#66746d]">
-              Wähle die passende Behandlung und Dauer. Gutscheine und 10+1 Pakete
-              sind direkt für jede Massageart möglich.
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-5 md:grid-cols-2">
-            {content.services.map((service) => {
-              const Icon = serviceIcons[service.icon]
-
-              return (
-                <article
-                  key={service.title}
-                  className="rounded-lg border border-[#e7dfd4] bg-[#fbfaf7] p-6 transition hover:-translate-y-1 hover:shadow-[0_18px_50px_rgba(32,45,38,0.1)]"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="grid size-12 place-items-center rounded-md bg-[#e4eee5] text-[#28594a]">
-                      <Icon className="size-6" />
-                    </span>
-                    <span className="rounded-md bg-[#28594a] px-3 py-1 text-sm font-semibold text-white">
-                      {service.price}
-                    </span>
-                  </div>
-                  <h3 className="mt-6 text-2xl font-semibold text-[#18221e]">
-                    {service.title}
-                  </h3>
-                  <p className="mt-3 min-h-20 text-[15px] leading-7 text-[#5b6b63]">
-                    {service.text}
-                  </p>
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {service.times.map((time) => (
-                      <span
-                        key={time}
-                        className="rounded-md border border-[#d9d1c5] bg-white px-3 py-2 text-sm text-[#43534b]"
-                      >
-                        {time}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-6 flex gap-3">
-                    <a
-                      href="#termin"
-                      className="inline-flex h-8 items-center justify-center rounded-md bg-[#28594a] px-3 text-sm font-medium text-white transition hover:bg-[#214a3e] hover:text-white"
-                    >
-                      Buchen
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => openMassageGutschein(service)}
-                      className="inline-flex h-8 items-center justify-center rounded-md border border-[#d9d1c5] bg-white px-3 text-sm font-medium text-[#28594a] transition hover:bg-[#eef3ec]"
-                    >
-                      Gutschein
-                    </button>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section id="praxis" className="bg-[#eef3ec] py-20 sm:py-28">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-[0.86fr_1.14fr]">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#9b6040]">
-              {content.practice.eyebrow}
-            </p>
-            <h2 className="mt-3 text-4xl font-semibold leading-tight text-[#18221e] sm:text-5xl">
-              {content.practice.title}
-            </h2>
-          </div>
-          <div className="grid gap-5 text-base leading-8 text-[#52625a] md:grid-cols-2">
-            {content.practice.cards.map((card) => (
-              <div className="rounded-lg bg-white p-6" key={card.title}>
-                <h3 className="text-xl font-semibold text-[#18221e]">{card.title}</h3>
-                <p className="mt-3">{card.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="naki" className="bg-[#f8f5ef] py-20 sm:py-28">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1.08fr_0.92fr]">
-          <div className="relative min-h-[360px] overflow-hidden rounded-lg border border-[#e2d8c9] bg-[#f1eadc] shadow-[0_24px_70px_rgba(32,45,38,0.12)] sm:min-h-[440px] lg:min-h-[560px]">
-            <img
-              src={aboutImageSrc}
-              alt="Naki Öztürk, Masseur in Pramet"
-              className="absolute inset-0 size-full object-cover object-center"
-            />
-            <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-[#f8f5ef]/44 to-transparent" />
-            <FlowerLayer />
-          </div>
-          <div className="max-w-xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#9b6040]">
-              {content.about.eyebrow}
-            </p>
-            <h2 className="mt-3 text-4xl font-semibold leading-tight text-[#18221e] sm:text-5xl">
-              {content.about.title}
-            </h2>
-            <p className="mt-5 text-base leading-8 text-[#52625a]">{content.about.body}</p>
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              {content.about.stats.map((stat) => (
-                <div className="rounded-lg bg-white p-5" key={stat.value}>
-                  <p className="text-3xl font-semibold text-[#28594a]">{stat.value}</p>
-                  <p className="mt-2 text-sm leading-6 text-[#5b6b63]">{stat.text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="termin" className="bg-[#1e2b25] py-20 text-white sm:py-28">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-[0.82fr_1.18fr]">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#d6a276]">
-              {content.appointment.eyebrow}
-            </p>
-            <h2 className="mt-3 text-4xl font-semibold leading-tight sm:text-5xl">
-              {content.appointment.title}
-            </h2>
-            <p className="mt-5 max-w-md leading-8 text-white/72">
-              {content.appointment.body}
-            </p>
-            <a
-              href={phoneHref(content.contact.phone)}
-              className="mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-medium text-[#1e2b25] transition hover:bg-[#f4efe6] hover:text-[#1e2b25]"
-            >
-              <Phone className="size-4" />
-              {content.contact.phone}
-            </a>
-          </div>
-          <form className="grid gap-4 rounded-lg bg-white p-5 text-[#1c2621] shadow-2xl sm:p-7">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-2 text-sm font-medium">
-                Massageart
-                <select
-                  value={appointmentForm.serviceTitle}
-                  onChange={(event) => changeAppointmentService(event.target.value)}
-                  className="h-12 rounded-md border border-[#d9d1c5] bg-[#fbfaf7] px-3"
-                >
-                  <option value="">Bitte auswählen</option>
-                  {serviceTitles.map((title) => (
-                    <option value={title} key={title}>{title}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-2 text-sm font-medium">
-                Dauer
-                <select
-                  value={appointmentForm.duration}
-                  onChange={(event) => setAppointmentForm((current) => ({ ...current, duration: event.target.value }))}
-                  disabled={!appointmentForm.serviceTitle || appointmentTimes.length === 0}
-                  className="h-12 rounded-md border border-[#d9d1c5] bg-[#fbfaf7] px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <option value="">Bitte auswählen</option>
-                  {appointmentTimes.map((time) => (
-                    <option value={time} key={time}>{time}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-2 text-sm font-medium">
-                Dein Name
-                <input className="h-12 rounded-md border border-[#d9d1c5] bg-[#fbfaf7] px-3" />
-              </label>
-              <label className="grid gap-2 text-sm font-medium">
-                Tel. Nr.
-                <input className="h-12 rounded-md border border-[#d9d1c5] bg-[#fbfaf7] px-3" />
-              </label>
-            </div>
-            <label className="grid gap-2 text-sm font-medium">
-              Anregungen / Wünsche
-              <textarea className="min-h-28 rounded-md border border-[#d9d1c5] bg-[#fbfaf7] p-3" />
-            </label>
-            <Button type="button" className="h-12 rounded-md bg-[#28594a]">
-              {content.appointment.submitLabel}
-              <ArrowRight className="size-4" />
-            </Button>
-          </form>
-        </div>
-      </section>
-
-      <section id="gutschein" className="bg-white py-20 sm:py-28">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-[1fr_1fr]">
-          <div className="rounded-lg border border-[#e7dfd4] bg-[#fbfaf7] p-7">
-            <Gift className="size-10 text-[#9b6040]" />
-            <h2 className="mt-5 text-4xl font-semibold text-[#18221e]">
-              {content.vouchers.title}
-            </h2>
-            <p className="mt-4 leading-8 text-[#5b6b63]">{content.vouchers.body}</p>
-            <div className="mt-6 flex flex-wrap gap-2">
-              {content.vouchers.values.map((value) => (
-                <button
-                  type="button"
-                  onClick={() => openValueGutschein(value)}
-                  key={value}
-                  className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-[#28594a] transition hover:bg-[#eef3ec]"
-                >
-                  {value}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div id="kontakt" className="rounded-lg bg-[#eef3ec] p-7">
-            <MapPin className="size-10 text-[#28594a]" />
-            <h2 className="mt-5 text-4xl font-semibold text-[#18221e]">
-              {content.contact.title}
-            </h2>
-            <div className="mt-5 space-y-3 text-lg text-[#43534b]">
-              <p className="font-semibold text-[#18221e]">{content.contact.name}</p>
-              <p>{content.contact.address}</p>
-              <p>
-                <a href={phoneHref(content.contact.phone)}>{content.contact.phone}</a>
-              </p>
-              <p>
-                <a href={`mailto:${content.contact.email}`}>{content.contact.email}</a>
-              </p>
-            </div>
-            <a
-              href={content.contact.mapUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-7 inline-flex h-8 items-center justify-center gap-2 rounded-md bg-[#28594a] px-3 text-sm font-medium text-white transition hover:bg-[#214a3e] hover:text-white"
-            >
-              {content.contact.mapLabel}
-              <ArrowRight className="size-4" />
-            </a>
-          </div>
-        </div>
-      </section>
+      <SiteHeader content={content} />
+      <HeroSection content={content} imageSrc={heroImageSrc} />
+      <LeistungenSection content={content} onMassageVoucher={openMassageGutschein} />
+      <PraxisSection content={content} />
+      <UeberNakiSection content={content} imageSrc={aboutImageSrc} />
+      <TerminSection
+        content={content}
+        serviceTitles={serviceTitles}
+        appointmentForm={appointmentForm}
+        appointmentTimes={appointmentTimes}
+        onServiceChange={changeAppointmentService}
+        onDurationChange={(duration) => setAppointmentForm((current) => ({ ...current, duration }))}
+      />
+      <KontaktSection content={content} onValueVoucher={openValueGutschein} />
 
       {isGutscheinOpen ? (
         <GutscheinDrawer
@@ -672,21 +323,10 @@ function PublicSite({ content }: { content: SiteContent }) {
         />
       ) : null}
 
-      <footer className="border-t border-[#e7dfd4] bg-[#f8f5ef] px-5 py-8 text-sm text-[#66746d] sm:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p>{content.footer.copyright}</p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <p>{content.footer.imprint}</p>
-            <a href="#/admin" className="font-medium text-[#28594a]">
-              Admin
-            </a>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter content={content} />
     </main>
   )
 }
-
 function GutscheinDrawer({
   content,
   form,
@@ -893,7 +533,7 @@ function AdminPanel({
   setContent: (content: SiteContent) => void
 }) {
   const [draft, setDraft] = useState(savedContent)
-  const [status, setStatus] = useState("Degisiklikler taslakta bekler; Kaydet butonuna basinca API'ye yazilir.")
+  const [status, setStatus] = useState("")
   const [session, setSession] = useState<AdminSession | null>(() => readStoredAdminSession())
   const [credentials, setCredentials] = useState({ email: "", password: "" })
   const [isSaving, setIsSaving] = useState(false)
@@ -1051,7 +691,7 @@ function AdminPanel({
       <main className="grid min-h-svh place-items-center bg-[#f4efe6] px-5 text-[#1c2621]">
         <section className="w-full max-w-md rounded-lg border border-[#ded4c4] bg-white p-6 shadow-sm">
           <img src={nakiLogo} alt="Naki" className="mb-6 h-20 object-contain object-left" />
-          <h1 className="text-2xl font-semibold text-[#18221e]">Admin Girisi</h1>
+          <h1 className="text-2xl font-semibold text-[#18221e]">Login</h1>
           <p className="mt-2 text-sm leading-6 text-[#52625a]">{status}</p>
           <div className="mt-6 grid gap-4">
             <Field
@@ -1158,7 +798,7 @@ function AdminPanel({
         <div className="grid gap-6">
           {activePage === "hero" ? (
           <AdminSection id="admin-hero" title="Hero ve Menü">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4">
               <Field label="Hero üst etiket" value={draft.hero.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, eyebrow: value } }))} />
               <Field label="Başlık" value={draft.hero.title} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, title: value } }))} />
               <TextArea label="Açıklama" value={draft.hero.body} onChange={(value) => setDraft((current) => ({ ...current, hero: { ...current.hero, body: value } }))} />
@@ -1238,15 +878,36 @@ function AdminPanel({
 
           {activePage === "practice" ? (
           <AdminSection id="admin-practice" title="Praxis İçeriği">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4">
               <Field label="Etiket" value={draft.practice.eyebrow} onChange={(value) => setDraft((current) => ({ ...current, practice: { ...current.practice, eyebrow: value } }))} />
               <Field label="Başlık" value={draft.practice.title} onChange={(value) => setDraft((current) => ({ ...current, practice: { ...current.practice, title: value } }))} />
               {draft.practice.cards.map((card, index) => (
                 <div className="grid gap-4 rounded-lg border border-[#ded4c4] bg-[#fbfaf7] p-4" key={`practice-card-${index}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-semibold text-[#18221e]">
+                      {card.title || `Praxis kartı ${index + 1}`}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setDraft((current) => ({ ...current, practice: { ...current.practice, cards: current.practice.cards.filter((_, cardIndex) => cardIndex !== index) } }))}
+                      className="grid size-9 place-items-center rounded-md border border-[#d1c5b7] bg-white text-[#9b6040]"
+                      aria-label="Praxis kartını sil"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
                   <Field label="Kart başlığı" value={card.title} onChange={(value) => setDraft((current) => ({ ...current, practice: { ...current.practice, cards: current.practice.cards.map((item, cardIndex) => cardIndex === index ? { ...item, title: value } : item) } }))} />
                   <TextArea label="Kart metni" value={card.text} onChange={(value) => setDraft((current) => ({ ...current, practice: { ...current.practice, cards: current.practice.cards.map((item, cardIndex) => cardIndex === index ? { ...item, text: value } : item) } }))} />
                 </div>
               ))}
+              <button
+                type="button"
+                onClick={() => setDraft((current) => ({ ...current, practice: { ...current.practice, cards: [...current.practice.cards, { title: "Neue Praxis Info", text: "Beschreibung ergänzen." }] } }))}
+                className="inline-flex h-11 w-max items-center justify-center gap-2 rounded-md bg-[#28594a] px-4 text-sm font-medium text-white"
+              >
+                <Plus className="size-4" />
+                Praxis kartı ekle
+              </button>
             </div>
           </AdminSection>
           ) : null}
@@ -1447,15 +1108,171 @@ function TextArea({
   value: string
   onChange: (value: string) => void
 }) {
+  const editorRef = useRef<HTMLDivElement>(null)
+  const [activeFormats, setActiveFormats] = useState({
+    bold: false,
+    italic: false,
+    underline: false,
+    unorderedList: false,
+    orderedList: false,
+  })
+
+  const isCommandActive = (command: string) => {
+    try {
+      return document.queryCommandState(command)
+    } catch {
+      return false
+    }
+  }
+
+  const refreshActiveFormats = () => {
+    const editor = editorRef.current
+    const selection = window.getSelection()
+
+    if (!editor || !selection?.anchorNode || !editor.contains(selection.anchorNode)) {
+      return
+    }
+
+    setActiveFormats({
+      bold: isCommandActive("bold"),
+      italic: isCommandActive("italic"),
+      underline: isCommandActive("underline"),
+      unorderedList: isCommandActive("insertUnorderedList"),
+      orderedList: isCommandActive("insertOrderedList"),
+    })
+  }
+
+  useEffect(() => {
+    const editor = editorRef.current
+
+    if (!editor || document.activeElement === editor) {
+      return
+    }
+
+    const nextValue = sanitizeRichText(value)
+    if (editor.innerHTML !== nextValue) {
+      editor.innerHTML = nextValue
+    }
+  }, [value])
+
+  useEffect(() => {
+    document.addEventListener("selectionchange", refreshActiveFormats)
+
+    return () => {
+      document.removeEventListener("selectionchange", refreshActiveFormats)
+    }
+  })
+
+  const updateValue = (shouldSanitize = false) => {
+    const editor = editorRef.current
+
+    if (!editor) {
+      onChange("")
+      return
+    }
+
+    const nextValue = shouldSanitize ? sanitizeRichText(editor.innerHTML) : editor.innerHTML
+
+    if (shouldSanitize && editor.innerHTML !== nextValue) {
+      editor.innerHTML = nextValue
+    }
+
+    onChange(nextValue)
+    refreshActiveFormats()
+  }
+
+  const runCommand = (command: string, commandValue?: string) => {
+    editorRef.current?.focus()
+    document.execCommand(command, false, commandValue)
+    updateValue()
+    window.setTimeout(refreshActiveFormats)
+  }
+
+  const addLink = () => {
+    const url = window.prompt("Link URL")
+
+    if (!url) {
+      return
+    }
+
+    runCommand("createLink", url)
+  }
+
   return (
-    <label className="grid gap-2 text-sm font-medium text-[#43534b]">
-      {label}
-      <textarea
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-h-28 rounded-md border border-[#d1c5b7] bg-white p-3 leading-6"
-      />
-    </label>
+    <div className="grid gap-2 text-sm font-medium text-[#43534b]">
+      <span>{label}</span>
+      <div className="overflow-hidden rounded-md border border-[#d1c5b7] bg-white">
+        <div className="flex flex-wrap gap-1 border-b border-[#e3d9ca] bg-[#fbfaf7] p-2">
+          <EditorButton label="Kalın" active={activeFormats.bold} onClick={() => runCommand("bold")}>
+            <Bold className="size-4" />
+          </EditorButton>
+          <EditorButton label="İtalik" active={activeFormats.italic} onClick={() => runCommand("italic")}>
+            <Italic className="size-4" />
+          </EditorButton>
+          <EditorButton label="Altı çizili" active={activeFormats.underline} onClick={() => runCommand("underline")}>
+            <span className="text-sm font-semibold underline">U</span>
+          </EditorButton>
+          <EditorButton label="Madde listesi" active={activeFormats.unorderedList} onClick={() => runCommand("insertUnorderedList")}>
+            <List className="size-4" />
+          </EditorButton>
+          <EditorButton label="Numaralı liste" active={activeFormats.orderedList} onClick={() => runCommand("insertOrderedList")}>
+            <ListOrdered className="size-4" />
+          </EditorButton>
+          <EditorButton label="Link" onClick={addLink}>
+            <Link2 className="size-4" />
+          </EditorButton>
+          <EditorButton label="Biçimi temizle" onClick={() => runCommand("removeFormat")}>
+            <RemoveFormatting className="size-4" />
+          </EditorButton>
+        </div>
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={() => updateValue()}
+          onBlur={() => updateValue(true)}
+          onKeyUp={refreshActiveFormats}
+          onMouseUp={refreshActiveFormats}
+          onPaste={(event) => {
+            event.preventDefault()
+            const text = event.clipboardData.getData("text/plain")
+            document.execCommand("insertText", false, text)
+            updateValue()
+          }}
+          className="rich-editor min-h-32 bg-white p-3 text-base leading-7 outline-none"
+        />
+      </div>
+    </div>
+  )
+}
+
+function EditorButton({
+  label,
+  active = false,
+  onClick,
+  children,
+}: {
+  label: string
+  active?: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onClick}
+      className={`grid size-8 place-items-center rounded-md transition ${
+        active
+          ? "bg-[#28594a] text-white shadow-sm hover:bg-[#214a3e] hover:text-white"
+          : "text-[#43534b] hover:bg-[#e8efe6] hover:text-[#28594a]"
+      }`}
+    >
+      {children}
+    </button>
   )
 }
 
