@@ -1,6 +1,6 @@
 import type { ServiceIcon, SiteContent } from "@/data/siteContent"
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5002").replace(
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "https://nakiapi.sofiraflow.com/api").replace(
   /\/$/,
   ""
 )

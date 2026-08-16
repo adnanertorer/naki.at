@@ -7,8 +7,8 @@ RUN npm ci
 
 COPY . .
 
-ARG VITE_API_URL=http://localhost:5001/api
-ARG VITE_MAIN_URL=http://localhost:5001/
+ARG VITE_API_URL=https://nakiapi.sofiraflow.com/api
+ARG VITE_MAIN_URL=https://nakiat.sofiraflow.com/
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_MAIN_URL=$VITE_MAIN_URL
 
